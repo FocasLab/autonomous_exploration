@@ -9,9 +9,11 @@ project(autonomous_exploration)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
   geometry_msgs
-  phasespace_msmgs
+  phasespace_msgs
+  actionlib_msgs
   roscpp
   rospy
+  message_generation
 )
 
 ## System dependencies are found with CMake's conventions
@@ -48,11 +50,11 @@ find_package(catkin REQUIRED COMPONENTS
 ##   * add every package in MSG_DEP_SET to generate_messages(DEPENDENCIES ...)
 
 ## Generate messages in the 'msg' folder
-# add_message_files(
-#   FILES
-#   Message1.msg
-#   Message2.msg
-# )
+add_message_files(
+  FILES
+  obstacle.msg
+  target.msg
+)
 
 ## Generate services in the 'srv' folder
 # add_service_files(
@@ -62,11 +64,10 @@ find_package(catkin REQUIRED COMPONENTS
 # )
 
 ## Generate actions in the 'action' folder
-# add_action_files(
-#   FILES
-#   Action1.action
-#   Action2.action
-# )
+add_action_files(
+  FILES
+  autoExpl.action
+)
 
 ## Generate added messages and services with any dependencies listed here
 # generate_messages(
@@ -106,7 +107,7 @@ find_package(catkin REQUIRED COMPONENTS
 catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES autonomous_exploration
-#  CATKIN_DEPENDS geometry_msgs phasespace_msmgs roscpp rospy
+ CATKIN_DEPENDS geometry_msgs phasespace_msgs actionlib_msgs roscpp rospy message_runtime
 #  DEPENDS system_lib
 )
 
