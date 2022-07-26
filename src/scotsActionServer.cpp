@@ -8,6 +8,12 @@
 #include <ros/ros.h>
 #include <actionlib/server/simple_action_server.h>
 #include <autonomous_exploration/autoExplAction.h>
+#include <autonomous_exploration/target.h>
+
+// ros robot includes
+#include <phasespace_msgs/Markers.h>
+#include <geometry_msgs/Pose2D.h>
+#include <geometry_msgs/Twist.h>
 
 // scots includes 
 #include "scots.hpp"
@@ -37,6 +43,19 @@ class scotsActionServer
 		// create messages that are used to published feedback/result
 		autonomous_exploration::autoExplFeedback feedback_;
 		autonomous_exploration::autoExplResult result_;
+
+		// robot state 
+		geometry_msgs::Pose2D curr_pose;
+
+		// publisher and subscriber handlers
+		std::string pose_topic_name_ = "/turtle1/pose";
+		ros::Subscriber robot_pose = nh.subscribe(pose_topic_name_, 0, robotPoseCallback_2, this);
+
+		std::string vel_topic_name_ = "/turtle1/cmd_vel";
+		ros::Publisher robot_vel = nh.advertise<geometry_msgs::Twist>(vel_topic_name_, 0);
+
+		// ros loop rate
+		ros::Rate rate(10);
 
 		// for time profiling
 		TicToc tt;
@@ -82,6 +101,116 @@ class scotsActionServer
 		double get_points_in_line(const Eigen::Vector2d &pt1, const Eigen::Vector2d &pt2, const Eigen::Vector2d &query_point) {
 			return ((query_point.y() - pt1.y()) * (pt2.x() - pt1.x())) - ((query_point.x() - pt1.x()) * (pt2.y() - pt1.y()));
 		}
+
+		void robotPoseCallback_1(const phasespace_msgs::Markers &msg) {
+			phasespace_msgs::Marker marker_dyn = msg.markers[0];
+			phasespace_msgs::Marker marker_ori = msg.markers[1];
+
+			curr_pose.x = marker_dyn.x;
+			curr_pose.y = marker_dyn.y;
+
+			double dy = marker_dyn.y - marker_ori.y;
+			double dx = marker_dyn.x - marker_ori.x;
+
+			double angle = std::atan2(dy, dx);
+			curr_pose.theta = angle;
+		}
+
+		void robotPoseCallback_2(const turtlesim::Pose &msg){
+			curr_pose.x = msg.x;
+			curr_pose.y = msg.y;
+			curr_pose.theta = msg.theta;
+		}
+
+		scots::StaticController getController(const scots::UniformGrid &ss, const state_type &s_eta, 
+			const autonomous_exploration::target &target) {
+			
+			// defining target set
+			auto target = [&ss, &s_eta](const abs_type& idx) {
+				state_type x;
+				ss.itox(idx,x);
+				// function returns 1 if cell associated with x is in target set 
+				if (target.points[0] <= (x[0] - s_eta[0] / 2.0) && (x[0] + s_eta[0] / 2.0) <= target.points[1] && 
+					target.points[2] <= (x[1] - s_eta[1] / 2.0) && (x[1] + s_eta[1] / 2.0) <= target.points[3])
+				  return true;
+				return false;
+			};
+
+			ROS_INFO("Synthesis for target, %d", target.id);
+			tt.tic();
+			scots::WinningDomain win_domain = scots::solve_reachability_game(tf, target_1);
+			tt.toc();
+			ROS_INFO("Winning domain for targer id %d, is %d", target.id, win_domain.get_size());
+
+			return scots::StaticController(ss, is, std::move(win_1))
+		}
+
+		bool reachTarget(const bool &success, const scots::StaticController &controller, const autonomous_exploration::target &target) {
+			// defining target set
+			auto target = [](const state_type& x) {
+				// function returns 1 if cell associated with x is in target set 
+				if (target[0] <= x[0] && x[0] <= target[1] && target[2] <= x[1] && x[1] <= target[3])
+				  return true;
+				return false;
+			};
+
+			state_type robot_state = {curr_pose.x, curr_pose.y, curr_pose.theta};
+
+			ros::Duration(1).sleep();
+			geometry_msgs::Twist vel_msg_turtle;
+
+			while(ros::ok()) {
+				
+				if(as_.isPreemptRequested()) {
+					ROS_INFO("%s: Preempted", action_name_.c_str());
+					// set the action state to preempted
+					as_.setPreempted();
+					success = false;
+					break;
+				}
+
+				robot_state = {curr_pose.x, curr_pose.y, curr_pose.theta};
+
+				if(!(target(robot_state))) {
+					// getting ready feedback handler
+					ROS_INFO("Robot's Current Pose, (%d, %d, %d)", robot_state[0], robot_state[1], robot_state[2]);
+					feedback_.curr_pose = curr_pose;
+
+					std::vector<input_type> control_inputs = controller.peek_control<state_type, input_type>(robot_state);
+
+					vel_msg_turtle.linear.x = control_inputs[0][0];
+					vel_msg_turtle.angular.z = control_inputs[0][1];
+
+					// pusblishing the current feedback to action client
+					as_.publsihFeedback(feedback_);
+				}
+				else {
+					vel_msg_turtle.linear.x = 0.0;
+					vel_msg_turtle.angular.z = 0.0;
+
+					robot_vel.publish(vel_msg_turtle);
+					success = true;
+					break;
+				}
+
+				// this is to maintain, that robot will receive same speed for tau time.
+				ros::Time beginTime = ros::Time::now();
+				ros::Duration secondsIWantToSendMessagesFor = ros::Duration(tau);
+				ros::Time endTime = beginTime + secondsIWantToSendMessagesFor;
+
+				while(ros::Time::now() < endTime )
+				{
+					robot_vel.publish(vel_msg_turtle);
+
+					// Time between messages, so you don't blast out an thousands of
+					// messages in your 3 secondperiod
+					ros::Duration(0.1).sleep();
+				}
+
+				rate.sleep();
+			}
+			return success;
+		}
 		
 		void processGoal(const simple_action_example::autoExplGoalConstPtr &goal) {
 			
@@ -103,7 +232,10 @@ class scotsActionServer
 				i_lb[0], i_lb[1], i_ub[0], i_ub[1], i_eta[0], i_eta[1]);
 			// is.print_info();
 
-			int num_targets = goal->targets.size();
+			// result parameter
+			bool success = true;
+
+			// Parsing obstacles
 			int num_obs = goal->obstacles.size();
 
 			std::vector<std::vector<Eigen::Vector2d>> vertices;
@@ -179,8 +311,31 @@ class scotsActionServer
 			tt.toc();
 
 			if(!getrusage(RUSAGE_SELF, &usage))
-    			ROS_INFO("Memory per transition: %d", usage.ru_maxrss / (double)tf.get_no_transitions());
-  				
-  			ROS_INFO("Number of transitions: " << tf.get_no_transitions());
+				ROS_INFO("Memory per transition: %d", usage.ru_maxrss / (double)tf.get_no_transitions());
+				
+			ROS_INFO("Number of transitions: " << tf.get_no_transitions());
+
+			// Parsing targets
+			int num_targets = goal->targets.size();
+			// std::vector<scots::StaticController> controllers;
+
+			// for(int i = 0; i < num_targets; i++) {
+			// 	controllers.push_back(getController(ss, s_eta, goal->targets[i]));
+			// }
+
+			controller = getController(ss, s_eta, goal->targets[0]);
+
+			ROS_INFO("Target Locked, starting to proceed.");
+			success = reachTarget(success, controller, goal->targets[0]);
+
+			if(success) {
+				result_.id = 0;
+				result_.synthesis_time = synthesis_time;
+				result_.completion_time = completion_time;
+
+				ROS_INFO("%s: Succeeded", action_name_.c_str());
+				// set the action state to succeeded
+				as_.setSucceeded(result_);
+			}
 		}
 };

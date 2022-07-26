@@ -6,7 +6,6 @@ obstacle[] obstacles
 uint32 target_id
 float32 synthesis_time
 float32 completion_time
-bool success
 ---
 ## Feedback 
 geometry_msgs/Pose2D curr_pose
