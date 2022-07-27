@@ -1,6 +1,6 @@
 ## Goal
-target[] targets
-obstacle[] obstacles
+Target[] targets
+Obstacle[] obstacles
 ---
 ## Result
 uint32 target_id
