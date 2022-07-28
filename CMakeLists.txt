@@ -75,7 +75,7 @@ include
   ${INC_PATH}
 )
 
-# Link the node
+# Link the action server node
 add_executable(scots_action_server src/scotsActionServer.cpp)
 
 target_link_libraries(
@@ -85,6 +85,20 @@ target_link_libraries(
 
 add_dependencies(
   scots_action_server
+  # The one below is the name of your package!!
+  ${autonomous_exploration_EXPORTED_TARGETS}
+)
+
+# Link the node action client node
+add_executable(scots_action_client src/scotsActionClient.cpp)
+
+target_link_libraries(
+  scots_action_client
+  ${catkin_LIBRARIES}
+)
+
+add_dependencies(
+  scots_action_client
   # The one below is the name of your package!!
   ${autonomous_exploration_EXPORTED_TARGETS}
 )
