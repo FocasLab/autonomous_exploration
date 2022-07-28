@@ -22,6 +22,7 @@
 #include "TicToc.hpp"
 
 // stl includes
+#include <iostream>
 #include <vector>
 #include <array>
 #include <cmath>
@@ -77,7 +78,7 @@ class scotsActionServer
 		action_name_(name) {
 			as_.start();
 
-			ROS_INFO("Scots Action Server is started, now you can send the goals.");
+			std::cout << "Scots Action Server is started, now you can send the goals." << std::endl;
 		}
 
 		~scotsActionServer(void)
@@ -122,11 +123,11 @@ class scotsActionServer
 				return false;
 			};
 
-			ROS_INFO("Synthesis for target, %d", tr.id);
+			std::cout << "\nSynthesis for target, " << tr.id << std::endl;
 			tt.tic();
 			scots::WinningDomain win_domain = scots::solve_reachability_game(tf, target);
 			tt.toc();
-			ROS_INFO("Winning domain for targer id %d, is %d", tr.id, win_domain.get_size());
+			std::cout << "\nWinning domain for targer id " << tr.id << ", is " << win_domain.get_size() << std::endl;
 
 			return scots::StaticController(ss, is, std::move(win_domain));
 		}
@@ -148,7 +149,7 @@ class scotsActionServer
 			while(ros::ok()) {
 				
 				if(as_.isPreemptRequested()) {
-					ROS_INFO("%s: Preempted", action_name_.c_str());
+					std::cout << "\nPreempted request for, " << action_name_.c_str() << std::endl;
 					// set the action state to preempted
 					as_.setPreempted();
 					success = false;
@@ -159,7 +160,9 @@ class scotsActionServer
 
 				if(!(target(robot_state))) {
 					// getting ready feedback handler
-					ROS_INFO("Robot's Current Pose, (%f, %f, %f)", robot_state[0], robot_state[1], robot_state[2]);
+					std::cout << "Robot's Current Pose: " << robot_state[0] << ", " 
+														<< robot_state[1] << ", " 
+														<< robot_state[2] << std::endl;
 					feedback_.curr_pose = curr_pose;
 
 					std::vector<input_type> control_inputs = controller.peek_control<state_type, input_type>(robot_state);
@@ -221,18 +224,20 @@ class scotsActionServer
 			state_type s_eta={{.1, .1, .2}};
 
 			scots::UniformGrid ss(state_dim, s_lb, s_ub, s_eta);
-			ROS_INFO("State Space Grid Info (x, y, theta), (%f, %f, %f) -> (%f, %f, %f), with grid points, (%f, %f, %f)", 
-				s_lb[0], s_lb[1], s_lb[2], s_ub[0], s_ub[1], s_ub[2], s_eta[0], s_eta[1], s_eta[2]);
-			// ss.print_info();
+			// ROS_INFO("State Space Grid Info (x, y, theta), (%f, %f, %f) -> (%f, %f, %f), with grid points, (%f, %f, %f)", 
+			// 	s_lb[0], s_lb[1], s_lb[2], s_ub[0], s_ub[1], s_ub[2], s_eta[0], s_eta[1], s_eta[2]);
+			std::cout << std::endl;
+			ss.print_info();
 			
 			input_type i_lb={{-0.22, -0.1}};
 			input_type i_ub={{ 0.22, 0.1}};
 			input_type i_eta={{.02, .01}};
 			  
 			scots::UniformGrid is(input_dim, i_lb, i_ub, i_eta);
-			ROS_INFO("Input Space Grid Info (linear, angular), (%f, %f) -> (%f, %f), with grid points, (%f, %f)", 
-				i_lb[0], i_lb[1], i_ub[0], i_ub[1], i_eta[0], i_eta[1]);
-			// is.print_info();
+			// ROS_INFO("Input Space Grid Info (linear, angular), (%f, %f) -> (%f, %f), with grid points, (%f, %f)", 
+			// 	i_lb[0], i_lb[1], i_ub[0], i_ub[1], i_eta[0], i_eta[1]);
+			std::cout << std::endl;	
+			is.print_info();
 
 			// result parameter
 			bool success = true;
@@ -302,7 +307,7 @@ class scotsActionServer
 				return false;
 			};
 
-			ROS_INFO("Computing the transition function.");
+			std::cout << "\nComputing the transition function." << std::endl;
   
 			/* transition function of symbolic model */
 			scots::TransitionFunction tf;
@@ -313,9 +318,9 @@ class scotsActionServer
 			tt.toc();
 
 			if(!getrusage(RUSAGE_SELF, &usage))
-				ROS_INFO("Memory per transition: %lf", usage.ru_maxrss / (double)tf.get_no_transitions());
+				std::cout << "\nMemory per transition: " << usage.ru_maxrss / (double)tf.get_no_transitions() << std::endl;
 				
-			ROS_INFO("Number of transitions: %ld", tf.get_no_transitions());
+			std::cout << "Number of transitions: " << tf.get_no_transitions() << std::endl;
 
 			// Parsing targets
 			int num_targets = goal->targets.size();
@@ -327,7 +332,7 @@ class scotsActionServer
 
 			scots::StaticController controller = getController(ss, is, tf, s_eta, goal->targets[0]);
 
-			ROS_INFO("Target Locked, starting to proceed.");
+			std::cout << "\n\nTarget Locked, starting to proceed." << std::endl;
 			success = reachTarget(success, controller, goal->targets[0]);
 
 			if(success) {
@@ -335,7 +340,7 @@ class scotsActionServer
 				result_.synthesis_time = 0.0;
 				result_.completion_time = 0.0;
 
-				ROS_INFO("%s: Succeeded", action_name_.c_str());
+				std::cout << "Succeeded for: " << action_name_.c_str() << std::endl;
 				// set the action state to succeeded
 				as_.setSucceeded(result_);
 			}
