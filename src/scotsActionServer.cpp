@@ -14,7 +14,7 @@
 #include <phasespace_msgs/Markers.h>
 #include <geometry_msgs/Pose2D.h>
 #include <geometry_msgs/Twist.h>
-#include <turtlesim/Pose.h>
+#include <nav_msgs/OccupancyGrid.h>
 
 // scots includes 
 #include "scots.hpp"
@@ -46,15 +46,24 @@ class scotsActionServer
 		autonomous_exploration::autoExplFeedback feedback_;
 		autonomous_exploration::autoExplResult result_;
 
+		// state space
+		std::vector<int> map_vector;
+		double resolution;
+		int width, height;
+
 		// robot state 
 		geometry_msgs::Pose2D curr_pose;
 
 		// publisher and subscriber handlers
 		std::string pose_topic_name_ = "/turtle1/pose";
-		ros::Subscriber robot_pose = nh_.subscribe(pose_topic_name_, 1, &scotsActionServer::robotPoseCallback_2, this);
+		ros::Subscriber robot_pose = nh_.subscribe(pose_topic_name_, 1, &scotsActionServer::robotPoseCallback_1, this);
 
 		std::string vel_topic_name_ = "/turtle1/cmd_vel";
 		ros::Publisher robot_vel = nh_.advertise<geometry_msgs::Twist>(vel_topic_name_, 1);
+
+		// map subscriber
+		std::string map_topic_name = "/map";
+		ros::Subscriber map_sub = nh_.subscribe(map_topic_name, 1, &scotsActionServer::mapCallback, this);
 
 		// global variables
 		static const int state_dim = 3;
@@ -103,10 +112,33 @@ class scotsActionServer
 			curr_pose.theta = angle;
 		}
 
-		void robotPoseCallback_2(const turtlesim::Pose &msg){
-			curr_pose.x = msg.x;
-			curr_pose.y = msg.y;
-			curr_pose.theta = msg.theta;
+		void mapCallback(const nav_msgs::OccupancyGrid &msg) {
+			resolution = msg.info.resolution;
+			width = msg.info.width;
+			height = msg.info.height;
+
+			// map_vector = msg.data;
+			for(int i = 0; i < width * height; i++) {
+				map_vector.push_back(msg.data[i]);
+			}
+		}
+
+		std::vector<std::vector<int>> getMapMatrix(const std::vector<int> &map_vector, int width, int height) {
+			std::vector<std::vector<int>> map;
+
+			for(int i = 0; i < height; i++) {
+				std::vector<int> map_i;
+				for(int j = 0; j < width; j++) {
+					int idx = width * i + j;
+					if(map_vector[idx] > 0) {
+						map_i.push_back(map_vector[idx] / 100);
+						continue;
+					}
+					map_i.push_back(map_vector[idx]);
+				}
+				map.push_back(map_i);
+			}
+			return map;
 		}
 
 		scots::StaticController getController(const scots::UniformGrid &ss, const scots::UniformGrid &is, const scots::TransitionFunction &tf, 
@@ -219,8 +251,8 @@ class scotsActionServer
 				r[1] = r[1] + r[2] * std::abs(u[0]) * tau;
 			};
 			
-			state_type s_lb={{0, 0, -3.5}};
-			state_type s_ub={{4.5, 4.5, 3.5}};
+			state_type s_lb={{5, 10, -3.5}};
+			state_type s_ub={{10, 13, 3.5}};
 			state_type s_eta={{.1, .1, .2}};
 
 			scots::UniformGrid ss(state_dim, s_lb, s_ub, s_eta);
@@ -242,70 +274,39 @@ class scotsActionServer
 			// result parameter
 			bool success = true;
 
-			// Parsing obstacles
-			int num_obs = goal->obstacles.size();
+			std::vector<std::vector<int>> map = getMapMatrix(map_vector, width, height);
 
-			std::vector<std::vector<Eigen::Vector2d>> vertices;
-
-			for(int i = 0; i < num_obs; i++) {
-				// For storing obstacle instance
-				int num_points = goal->obstacles[i].points.size();
-				std::vector<Eigen::Vector2d> inner_obs;
-
-				for(int j = 0; j < num_points; j++) {
-					Eigen::Vector2d point{goal->obstacles[i].points[j].x, goal->obstacles[i].points[j].y};
-					inner_obs.push_back(point);
-				}
-				vertices.push_back(inner_obs);
-			}
-
-			auto avoid = [this, &vertices, ss, s_eta, num_obs](const abs_type& idx) {
+			auto avoid = [&map, ss, resolution=resolution](const abs_type& idx) {
 				state_type x;
 				ss.itox(idx, x);
 
-				double c1 = s_eta[0] / 2.0+1e-10;
-				double c2 = s_eta[1] / 2.0+1e-10;
+				int x_0 = int(x[0] / resolution);
+				int x_1 = int(x[1] / resolution);
 
-				Eigen::Vector2d query_point{x[0], x[1]};
+				std::cout << map[x_0][x_1] << ", ";
 
-				for(size_t i = 0; i < num_obs; i++) {
-					int wn = 0;
-					const int num_sides_of_polygon = vertices[i].size();
-
-					// Iterate over each side.
-					for (size_t j = 0; j < num_sides_of_polygon; ++j) { 
-
-						double point_in_line = get_points_in_line(vertices[i][j], 
-							vertices[i][(j + 1) % num_sides_of_polygon], query_point);
-
-						// Check if the point lies on the polygon.
-						if (point_in_line == 0) {
-							return true;
-						}
-
-						if (vertices[i][j].y() <= query_point.y()) {
-							// Upward crossing.
-							if (vertices[i][(j + 1) % num_sides_of_polygon].y() >
-								query_point.y()) {
-								if (point_in_line > 0) {
-									++wn;  // query point is left of edge
-								}
-							}
-						} 
-						else {
-							// Downward crossing.
-							if (vertices[i][(j + 1) % num_sides_of_polygon].y() <
-								query_point.y()) {
-								if (point_in_line < 0) {
-									--wn;  // query point is right of edge
-								}
-							}
-						}
-					}
-					return (wn != 0) ? true : false;  // Point is inside polygon only if wn != 0
+				if(map[x_0][x_1] != 0) {
+					return true;
 				}
 				return false;
 			};
+
+			// Parsing obstacles
+			// int num_obs = goal->obstacles.size();
+
+			// std::vector<std::vector<Eigen::Vector2d>> vertices;
+
+			// for(int i = 0; i < num_obs; i++) {
+			// 	// For storing obstacle instance
+			// 	int num_points = goal->obstacles[i].points.size();
+			// 	std::vector<Eigen::Vector2d> inner_obs;
+
+			// 	for(int j = 0; j < num_points; j++) {
+			// 		Eigen::Vector2d point{goal->obstacles[i].points[j].x, goal->obstacles[i].points[j].y};
+			// 		inner_obs.push_back(point);
+			// 	}
+			// 	vertices.push_back(inner_obs);
+			// }
 
 			std::cout << "\nComputing the transition function." << std::endl;
   
@@ -313,9 +314,9 @@ class scotsActionServer
 			scots::TransitionFunction tf;
 			scots::Abstraction<state_type,input_type> abs(ss, is);
 
-			tt.tic();
+			// tt.tic();
 			abs.compute_gb(tf, vehicle_post, radius_post, avoid);
-			tt.toc();
+			// tt.toc();
 
 			if(!getrusage(RUSAGE_SELF, &usage))
 				std::cout << "\nMemory per transition: " << usage.ru_maxrss / (double)tf.get_no_transitions() << std::endl;
@@ -333,7 +334,7 @@ class scotsActionServer
 			scots::StaticController controller = getController(ss, is, tf, s_eta, goal->targets[0]);
 
 			std::cout << "\n\nTarget Locked, starting to proceed." << std::endl;
-			success = reachTarget(success, controller, goal->targets[0]);
+			// success = reachTarget(success, controller, goal->targets[0]);
 
 			if(success) {
 				result_.target_id = 0;
