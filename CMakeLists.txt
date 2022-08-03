@@ -11,6 +11,7 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   rospy
   actionlib
+  tf2_ros
 )
 
 ## System dependencies are found with CMake's conventions
@@ -55,7 +56,7 @@ generate_messages(
 catkin_package(
  INCLUDE_DIRS include
 #  LIBRARIES autonomous_exploration
- CATKIN_DEPENDS geometry_msgs phasespace_msgs actionlib_msgs roscpp rospy actionlib
+ CATKIN_DEPENDS phasespace_msgs actionlib_msgs roscpp rospy
 #  DEPENDS system_lib
 )
 
@@ -103,6 +104,19 @@ add_dependencies(
   ${autonomous_exploration_EXPORTED_TARGETS}
 )
 
+# Link the node action client node
+add_executable(origin_pose_publisher src/origin_pose_publisher.cpp)
+
+target_link_libraries(
+  origin_pose_publisher
+  ${catkin_LIBRARIES}
+)
+
+add_dependencies(
+  origin_pose_publisher
+  # The one below is the name of your package!!
+  ${autonomous_exploration_EXPORTED_TARGETS}
+)
 
 #############
 ## Install ##
