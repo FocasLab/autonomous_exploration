@@ -1,13 +1,15 @@
-#! /usr/bin/env python3
+#!/usr/bin/env python3
 
 # ros includes
 import rospy
+from nav_msgs.msg import OccupancyGrid
 
 import numpy as np
 import math
+import time
 
 begin = time.time()
-filename = 'mapgazho.txt' # name of latest /map file
+# filename = 'mapgazho.txt' # name of latest /map file
 
 def get_frontiers(maps, width, height, target_window=6, boundary_window=1):
 	# Getting the map grid data from the ./map topic
@@ -161,3 +163,32 @@ def get_frontiers(maps, width, height, target_window=6, boundary_window=1):
 			print(sum_iter)
 
 	print("Done")
+
+
+mapData = OccupancyGrid()
+
+def mapDataCallback(msg):
+	global mapData
+	mapData = msg
+
+
+def main():
+	rospy.init_node('get_frontiers')
+
+	rospy.Subscriber('/map', OccupancyGrid, mapDataCallback)
+
+	while(len(mapData.data) < 1):
+		pass
+
+	target_data = get_frontiers(mapData.data, mapData.info.width, mapData.info.height)
+
+	print(target_data)
+
+	rospy.spin()
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except rospy.ROSInterruptException:
+        pass
