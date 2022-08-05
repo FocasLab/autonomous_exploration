@@ -8,10 +8,12 @@ find_package(catkin REQUIRED COMPONENTS
   geometry_msgs
   phasespace_msgs
   actionlib_msgs
+  visualization_msgs
   roscpp
   rospy
   actionlib
   tf2_ros
+  tf2
 )
 
 ## System dependencies are found with CMake's conventions
@@ -64,7 +66,7 @@ catkin_package(
 ## Build ##
 ###########
 
-set(INC_PATH ${CMAKE_CURRENT_SOURCE_DIR}/include/${PROJECT_NAME})
+# set(INC_PATH ${CMAKE_CURRENT_SOURCE_DIR}/include/${PROJECT_NAME})
 
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
@@ -73,50 +75,42 @@ include
   ${catkin_INCLUDE_DIRS}
   ${Boost_INCLUDE_DIRS}
   ${EIGEN3_INCLUDE_DIR}
-  ${INC_PATH}
+#   ${INC_PATH}
 )
 
-# Link the action server node
+# Link the nodes
 add_executable(scots_action_server src/scotsActionServer.cpp)
-
-target_link_libraries(
-  scots_action_server
-  ${catkin_LIBRARIES}
-)
-
-add_dependencies(
-  scots_action_server
-  # The one below is the name of your package!!
-  ${autonomous_exploration_EXPORTED_TARGETS}
-)
-
-# Link the node action client node
 add_executable(scots_action_client src/scotsActionClient.cpp)
-
-target_link_libraries(
-  scots_action_client
-  ${catkin_LIBRARIES}
-)
-
-add_dependencies(
-  scots_action_client
-  # The one below is the name of your package!!
-  ${autonomous_exploration_EXPORTED_TARGETS}
-)
-
-# Link the node action client node
 add_executable(origin_pose_publisher src/origin_pose_publisher.cpp)
+add_executable(robot_pose_publisher src/robot_pose_publisher.cpp)
+
+target_link_libraries(
+  scots_action_server
+  ${catkin_LIBRARIES}
+)
+
+target_link_libraries(
+  scots_action_client
+  ${catkin_LIBRARIES}
+)
 
 target_link_libraries(
   origin_pose_publisher
   ${catkin_LIBRARIES}
 )
 
-add_dependencies(
-  origin_pose_publisher
-  # The one below is the name of your package!!
-  ${autonomous_exploration_EXPORTED_TARGETS}
+target_link_libraries(
+  robot_pose_publisher
+  ${catkin_LIBRARIES}
 )
+# add_dependencies(
+#   scots_action_server
+#   scots_action_client
+#   origin_pose_publisher
+#   robot_pose_publisher
+#   # The one below is the name of your package!!
+#   ${autonomous_exploration_EXPORTED_TARGETS}
+# )
 
 #############
 ## Install ##

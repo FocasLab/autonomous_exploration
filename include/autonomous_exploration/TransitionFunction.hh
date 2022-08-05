@@ -19,7 +19,7 @@
 #include <memory>
 
 /* to get abs_type alias */
-#include <UniformGrid.hh>
+#include "UniformGrid.hh"
 
 
 /** @namespace scots **/ 
