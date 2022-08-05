@@ -6,6 +6,8 @@
 
 // ros includes
 #include <ros/ros.h>
+#include <tf2/LinearMath/Quaternion.h>
+#include <tf2/LinearMath/Matrix3x3.h>
 #include <actionlib/server/simple_action_server.h>
 #include <autonomous_exploration/autoExplAction.h>
 #include <autonomous_exploration/Target.h>
@@ -14,12 +16,14 @@
 #include <phasespace_msgs/Markers.h>
 #include <geometry_msgs/Pose2D.h>
 #include <geometry_msgs/Twist.h>
+#include <geometry_msgs/Point.h>
 #include <nav_msgs/OccupancyGrid.h>
+#include <visualization_msgs/Marker.h>
 
 // scots includes 
-#include "scots.hpp"
-#include "RungeKutta4.hpp"
-#include "TicToc.hpp"
+#include "autonomous_exploration/scots.hpp"
+#include "autonomous_exploration/RungeKutta4.hpp"
+#include "autonomous_exploration/TicToc.hpp"
 
 // stl includes
 #include <iostream>
@@ -55,15 +59,19 @@ class scotsActionServer
 		geometry_msgs::Pose2D curr_pose;
 
 		// publisher and subscriber handlers
-		std::string pose_topic_name_ = "/turtle1/pose";
-		ros::Subscriber robot_pose = nh_.subscribe(pose_topic_name_, 1, &scotsActionServer::robotPoseCallback_1, this);
+		std::string pose_topic_name_ = "/robot_pose";
+		ros::Subscriber robot_pose = nh_.subscribe(pose_topic_name_, 1, &scotsActionServer::robotPoseCallback_2, this);
 
-		std::string vel_topic_name_ = "/turtle1/cmd_vel";
-		ros::Publisher robot_vel = nh_.advertise<geometry_msgs::Twist>(vel_topic_name_, 1);
+		std::string vel_topic_name_ = "/cmd_vel";
+		ros::Publisher robot_vel = nh_.advertise<geometry_msgs::Twist>(vel_topic_name_, 10);
 
 		// map subscriber
 		std::string map_topic_name = "/map";
 		ros::Subscriber map_sub = nh_.subscribe(map_topic_name, 1, &scotsActionServer::mapCallback, this);
+
+		// obstacle visualization
+		std::string vis_topic_name = "/obs_visualization";
+		ros::Publisher obs_pub = nh_.advertise<visualization_msgs::Marker>(vis_topic_name, 10);
 
 		// global variables
 		static const int state_dim = 3;
@@ -112,6 +120,18 @@ class scotsActionServer
 			curr_pose.theta = angle;
 		}
 
+		void robotPoseCallback_2(const geometry_msgs::Pose &msg) {
+			curr_pose.x = msg.position.x;
+			curr_pose.y = msg.position.y;
+
+			tf2::Quaternion q(msg.orientation.x, msg.orientation.y, msg.orientation.z, msg.orientation.w);
+			tf2::Matrix3x3 m(q);
+			double roll, pitch, yaw;
+			m.setRPY(roll, pitch, yaw);
+
+			curr_pose.theta = yaw;
+		}
+
 		void mapCallback(const nav_msgs::OccupancyGrid &msg) {
 			resolution = msg.info.resolution;
 			width = msg.info.width;
@@ -130,11 +150,10 @@ class scotsActionServer
 				std::vector<int> map_i;
 				for(int j = 0; j < width; j++) {
 					int idx = width * i + j;
-					if(map_vector[idx] > 0) {
-						map_i.push_back(map_vector[idx] / 100);
-						continue;
-					}
-					map_i.push_back(map_vector[idx]);
+					if(map_vector[idx] > 0)
+						map_i.push_back(1);
+					else
+						map_i.push_back(map_vector[idx]);
 				}
 				map.push_back(map_i);
 			}
@@ -178,6 +197,8 @@ class scotsActionServer
 			ros::Duration(1).sleep();
 			geometry_msgs::Twist vel_msg_turtle;
 
+			ros::Rate rate(0.5);
+
 			while(ros::ok()) {
 				
 				if(as_.isPreemptRequested()) {
@@ -197,7 +218,7 @@ class scotsActionServer
 														<< robot_state[2] << std::endl;
 					feedback_.curr_pose = curr_pose;
 
-					std::vector<input_type> control_inputs = controller.peek_control<state_type, input_type>(robot_state);
+					std::vector<input_type> control_inputs = controller.get_control<state_type, input_type>(robot_state);
 
 					vel_msg_turtle.linear.x = control_inputs[0][0];
 					vel_msg_turtle.angular.z = control_inputs[0][1];
@@ -214,19 +235,22 @@ class scotsActionServer
 					break;
 				}
 
+				robot_vel.publish(vel_msg_turtle);
+				rate.sleep();
+
 				// this is to maintain, that robot will receive same speed for tau time.
-				ros::Time beginTime = ros::Time::now();
-				ros::Duration secondsIWantToSendMessagesFor = ros::Duration(tau);
-				ros::Time endTime = beginTime + secondsIWantToSendMessagesFor;
+				// ros::Time beginTime = ros::Time::now();
+				// ros::Duration secondsIWantToSendMessagesFor = ros::Duration(0.1);
+				// ros::Time endTime = beginTime + secondsIWantToSendMessagesFor;
 
-				while(ros::Time::now() < endTime )
-				{
-					robot_vel.publish(vel_msg_turtle);
+				// while(ros::Time::now() < endTime )
+				// {
+				// 	robot_vel.publish(vel_msg_turtle);
 
-					// Time between messages, so you don't blast out an thousands of
-					// messages in your 3 secondperiod
-					ros::Duration(0.1).sleep();
-				}
+				// 	// Time between messages, so you don't blast out an thousands of
+				// 	// messages in your 3 secondperiod
+				// 	ros::Duration(0.1).sleep();
+				// }
 
 				// r.sleep();
 			}
@@ -251,8 +275,8 @@ class scotsActionServer
 				r[1] = r[1] + r[2] * std::abs(u[0]) * tau;
 			};
 			
-			state_type s_lb={{5, 10, -3.5}};
-			state_type s_ub={{10, 13, 3.5}};
+			state_type s_lb={{8, 8, -3.5}};
+			state_type s_ub={{12, 12, 3.5}};
 			state_type s_eta={{.1, .1, .2}};
 
 			scots::UniformGrid ss(state_dim, s_lb, s_ub, s_eta);
@@ -271,22 +295,51 @@ class scotsActionServer
 			std::cout << std::endl;	
 			is.print_info();
 
+			// visaulization parameters
+			visualization_msgs::Marker points;
+
+			points.header.frame_id = "origin";
+			points.header.stamp = ros::Time::now();
+			
+			points.ns = "obstacles";
+			points.id = 0;
+			points.type = visualization_msgs::Marker::POINTS;
+			points.action = visualization_msgs::Marker::ADD;
+
+			points.scale.x = 0.1;
+			points.scale.y = 0.1;
+
+			points.color.r = 1.0f;
+			points.color.g = 1.0f;
+			points.color.a = 1.0;
+
+			points.lifetime = ros::Duration();
+
 			// result parameter
 			bool success = true;
 
-			std::vector<std::vector<int>> map = getMapMatrix(map_vector, width, height);
+			std::vector<std::vector<int>> maps = getMapMatrix(map_vector, width, height);
 
-			auto avoid = [&map, ss, resolution=resolution](const abs_type& idx) {
+			auto avoid = [&maps, &points, ss, s_eta, obs_pub=obs_pub, resolution=resolution](const abs_type& idx) {
 				state_type x;
 				ss.itox(idx, x);
 
-				int x_0 = int(x[0] / resolution);
-				int x_1 = int(x[1] / resolution);
+				std::vector<int> grid_ratio {int(s_eta[0] / resolution), int(s_eta[1] / resolution)};
 
-				std::cout << map[x_0][x_1] << ", ";
+				std::vector<int> cord {int(x[0] / resolution), int(x[1] / resolution)};
 
-				if(map[x_0][x_1] != 0) {
-					return true;
+				geometry_msgs::Point pt;
+
+				for(int i = 0; i < grid_ratio[0]; i++) {
+					for(int j = 0; j < grid_ratio[1]; j++) {
+						if(maps[cord[0] + i][cord[1] + j] != 0){
+							pt.x = x[0];
+							pt.y = x[1];
+							points.points.push_back(pt);
+							obs_pub.publish(points);
+							return true;
+						}
+					}
 				}
 				return false;
 			};
@@ -314,9 +367,9 @@ class scotsActionServer
 			scots::TransitionFunction tf;
 			scots::Abstraction<state_type,input_type> abs(ss, is);
 
-			// tt.tic();
+			tt.tic();
 			abs.compute_gb(tf, vehicle_post, radius_post, avoid);
-			// tt.toc();
+			tt.toc();
 
 			if(!getrusage(RUSAGE_SELF, &usage))
 				std::cout << "\nMemory per transition: " << usage.ru_maxrss / (double)tf.get_no_transitions() << std::endl;
@@ -334,7 +387,7 @@ class scotsActionServer
 			scots::StaticController controller = getController(ss, is, tf, s_eta, goal->targets[0]);
 
 			std::cout << "\n\nTarget Locked, starting to proceed." << std::endl;
-			// success = reachTarget(success, controller, goal->targets[0]);
+			success = reachTarget(success, controller, goal->targets[0]);
 
 			if(success) {
 				result_.target_id = 0;
