@@ -6,8 +6,10 @@
 
 // ros includes
 #include <ros/ros.h>
-#include <geometry_msgs/Pose.h>
-#include <geometry_msgs/PoseStamped.h>
+#include <geometry_msgs/Pose2D.h>
+#include <geometry_msgs/TransformStamped.h>
+#include <tf2/LinearMath/Quaternion.h>
+#include <tf2/LinearMath/Matrix3x3.h>
 #include <tf2_ros/transform_listener.h>
 
 int main(int argc, char** argv)
@@ -21,18 +23,13 @@ int main(int argc, char** argv)
 	// configuring parameters
 	std::string map_frame, base_frame;
 	double publish_frequency;
-	bool is_stamped;
-	ros::Publisher p_pub;
+	ros::Publisher p_2d_pub;
 
 	nh_priv.param<std::string>("map_frame", map_frame, "origin");
 	nh_priv.param<std::string>("base_frame", base_frame, "base_footprint");
 	nh_priv.param<double>("publish_frequency", publish_frequency, 10);
-	nh_priv.param<bool>("is_stamped", is_stamped, false);
 
-	if(is_stamped)
-		p_pub = nh.advertise<geometry_msgs::PoseStamped>("/robot_pose", 1);
-	else
-		p_pub = nh.advertise<geometry_msgs::Pose>("/robot_pose", 1);
+	p_2d_pub = nh.advertise<geometry_msgs::Pose2D>("/robot_pose", 1);
 
 	// creates the listener;
 	tf2_ros::Buffer tfbBuffer;
@@ -45,32 +42,32 @@ int main(int argc, char** argv)
 		geometry_msgs::TransformStamped transformStamped;
 
 		try {
-			transformStamped = tfbBuffer.lookupTransform(map_frame, base_frame, ros::Time(0), ros::Duration(1.0));
+			transformStamped = tfbBuffer.lookupTransform(map_frame, base_frame, ros::Time(0));
+
+			geometry_msgs::Vector3 position = transformStamped.transform.translation;
+			geometry_msgs::Quaternion rotation = transformStamped.transform.rotation;
+
+			geometry_msgs::Pose2D robot_pose;
+
+			robot_pose.x = position.x;
+			robot_pose.y = position.y;
+
+			tf2::Quaternion q(rotation.x, rotation.y, rotation.z, rotation.w);
+			tf2::Matrix3x3 m(q);
+			
+			double roll, pitch, yaw;
+			m.getRPY(roll, pitch, yaw);
+
+			robot_pose.theta = yaw;
+
+			p_2d_pub.publish(robot_pose);
 		}
+		
 		catch (tf2::TransformException &ex) {
 			ROS_WARN("%s", ex.what());
 			ros::Duration(1.0).sleep();
 			continue;
 		}
-
-		// construct a pose message
-		geometry_msgs::PoseStamped pose_stamped;
-		pose_stamped.header.frame_id = map_frame;
-		pose_stamped.header.stamp = ros::Time::now();
-
-		pose_stamped.pose.orientation.x = transformStamped.transform.rotation.x;
-		pose_stamped.pose.orientation.y = transformStamped.transform.rotation.y;
-		pose_stamped.pose.orientation.z = transformStamped.transform.rotation.z;
-		pose_stamped.pose.orientation.w = transformStamped.transform.rotation.w;
-
-		pose_stamped.pose.position.x = transformStamped.transform.translation.x;
-		pose_stamped.pose.position.y = transformStamped.transform.translation.y;
-		pose_stamped.pose.position.z = transformStamped.transform.translation.z;
-
-		if(is_stamped)
-			p_pub.publish(pose_stamped);
-		else
-			p_pub.publish(pose_stamped.pose);
 
 		rate.sleep();
 	}

@@ -6,8 +6,6 @@
 
 // ros includes
 #include <ros/ros.h>
-#include <tf2/LinearMath/Quaternion.h>
-#include <tf2/LinearMath/Matrix3x3.h>
 #include <actionlib/server/simple_action_server.h>
 #include <autonomous_exploration/autoExplAction.h>
 #include <autonomous_exploration/Target.h>
@@ -70,8 +68,8 @@ class scotsActionServer
 		ros::Subscriber map_sub = nh_.subscribe(map_topic_name, 1, &scotsActionServer::mapCallback, this);
 
 		// obstacle visualization
-		std::string vis_topic_name = "/obs_visualization";
-		ros::Publisher obs_pub = nh_.advertise<visualization_msgs::Marker>(vis_topic_name, 10);
+		std::string vis_topic_name = "/scots_visualization";
+		ros::Publisher markers_pub = nh_.advertise<visualization_msgs::Marker>(vis_topic_name, 10);
 
 		// global variables
 		static const int state_dim = 3;
@@ -116,16 +114,10 @@ class scotsActionServer
 			curr_pose.theta = angle;
 		}
 
-		void robotPoseCallback_2(const geometry_msgs::Pose &msg) {
-			curr_pose.x = msg.position.x;
-			curr_pose.y = msg.position.y;
-
-			tf2::Quaternion q(msg.orientation.x, msg.orientation.y, msg.orientation.z, msg.orientation.w);
-			tf2::Matrix3x3 m(q);
-			double roll, pitch, yaw;
-			m.setRPY(roll, pitch, yaw);
-
-			curr_pose.theta = yaw;
+		void robotPoseCallback_2(const geometry_msgs::Pose2D &msg) {
+			curr_pose.x = msg.x;
+			curr_pose.y = msg.y;
+			curr_pose.theta = msg.theta;
 		}
 
 		void mapCallback(const nav_msgs::OccupancyGrid &msg) {
@@ -231,23 +223,99 @@ class scotsActionServer
 					break;
 				}
 
-				robot_vel.publish(vel_msg_turtle);
-				rate.sleep();
+				// robot_vel.publish(vel_msg_turtle);
+				// rate.sleep();
 
 				// this is to maintain, that robot will receive same speed for tau time.
-				// ros::Time beginTime = ros::Time::now();
-				// ros::Duration secondsIWantToSendMessagesFor = ros::Duration(0.1);
-				// ros::Time endTime = beginTime + secondsIWantToSendMessagesFor;
+				ros::Time beginTime = ros::Time::now();
+				ros::Duration secondsIWantToSendMessagesFor = ros::Duration(2.1);
+				ros::Time endTime = beginTime + secondsIWantToSendMessagesFor;
 
-				// while(ros::Time::now() < endTime )
-				// {
-				// 	robot_vel.publish(vel_msg_turtle);
+				while(ros::Time::now() < endTime )
+				{
+					robot_vel.publish(vel_msg_turtle);
 
-				// 	// Time between messages, so you don't blast out an thousands of
-				// 	// messages in your 3 secondperiod
-				// 	ros::Duration(0.1).sleep();
-				// }
+					// Time between messages, so you don't blast out an thousands of
+					// messages in your 3 secondperiod
+					ros::Duration(0.1).sleep();
+				}
 			}
+			return success;
+		}
+
+		bool simulatePath(bool &success, const scots::StaticController &controller, const autonomous_exploration::Target &tr) {
+			//defining dynamics of robot
+			auto vehicle_post = [](state_type &x, const input_type &u) {
+				auto rhs = [](state_type& xx, const state_type &x, const input_type &u) {
+					xx[0] = u[0] * std::cos(x[2]); 
+					xx[1] = u[0] * std::sin(x[2]);
+					xx[2] = u[1];
+				};
+				scots::runge_kutta_fixed4(rhs, x, u, state_dim, tau, 10);
+			};
+
+			// defining target set
+			auto target = [&tr](const state_type& x) {
+				// function returns 1 if cell associated with x is in target set 
+				if (tr.points[0] <= x[0] && x[0] <= tr.points[1] && tr.points[2] <= x[1] && x[1] <= tr.points[3])
+				  return true;
+				return false;
+			};
+
+			state_type robot_state = {curr_pose.x, curr_pose.y, curr_pose.theta};
+
+			ros::Duration(1).sleep();
+
+			// visaulization parameters
+			visualization_msgs::Marker lines;
+
+			lines.header.frame_id = "origin";
+			lines.header.stamp = ros::Time::now();
+			
+			lines.ns = "lines";
+			lines.id = 0;
+			lines.type = visualization_msgs::Marker::LINE_STRIP;
+			lines.action = visualization_msgs::Marker::ADD;
+
+			lines.scale.x = 0.1;
+
+			lines.color.g = 1.0f;
+			lines.color.a = 1.0;
+
+			lines.lifetime = ros::Duration();
+
+			geometry_msgs::Point pts;
+
+			pts.x = robot_state[0];
+			pts.y = robot_state[1];
+			lines.points.push_back(pts);
+
+			while(ros::ok()) {
+				// getting ready feedback handler
+				std::cout << "Robot's Current Pose: " << robot_state[0] << ", " 
+													  << robot_state[1] << ", " 
+													  << robot_state[2] << std::endl;
+
+				std::vector<input_type> control_inputs = controller.get_control<state_type, input_type>(robot_state);
+
+				vehicle_post(robot_state, control_inputs[0]);
+
+				pts.x = robot_state[0];
+				pts.y = robot_state[1];
+
+				lines.points.push_back(pts);
+				markers_pub.publish(lines);
+
+				if(target(robot_state)) {
+					std::cout << "Reached: " << robot_state[0] << ", " 
+											 << robot_state[1] << ", " 
+											 << robot_state[2] << std::endl;
+
+					success = true;
+					break;
+				}
+			}
+
 			return success;
 		}
 		
@@ -274,8 +342,6 @@ class scotsActionServer
 			state_type s_eta={{.1, .1, .2}};
 
 			scots::UniformGrid ss(state_dim, s_lb, s_ub, s_eta);
-			// ROS_INFO("State Space Grid Info (x, y, theta), (%f, %f, %f) -> (%f, %f, %f), with grid points, (%f, %f, %f)", 
-			// 	s_lb[0], s_lb[1], s_lb[2], s_ub[0], s_ub[1], s_ub[2], s_eta[0], s_eta[1], s_eta[2]);
 			std::cout << std::endl;
 			ss.print_info();
 			
@@ -284,8 +350,6 @@ class scotsActionServer
 			input_type i_eta={{.02, .01}};
 			  
 			scots::UniformGrid is(input_dim, i_lb, i_ub, i_eta);
-			// ROS_INFO("Input Space Grid Info (linear, angular), (%f, %f) -> (%f, %f), with grid points, (%f, %f)", 
-			// 	i_lb[0], i_lb[1], i_ub[0], i_ub[1], i_eta[0], i_eta[1]);
 			std::cout << std::endl;	
 			is.print_info();
 
@@ -314,7 +378,7 @@ class scotsActionServer
 
 			std::vector<std::vector<int>> maps = getMapMatrix(map_vector, width, height);
 
-			auto avoid = [&maps, &points, ss, s_eta, obs_pub=obs_pub, resolution=resolution](const abs_type& idx) {
+			auto avoid = [&maps, &points, ss, s_eta, markers_pub=markers_pub, resolution=resolution](const abs_type& idx) {
 				state_type x;
 				ss.itox(idx, x);
 
@@ -322,15 +386,18 @@ class scotsActionServer
 
 				std::vector<int> cord {int(x[0] / resolution), int(x[1] / resolution)};
 
+				// std::cout <<  "idx:" << idx;
+				// std::cout << "(" << x[0] << ", " << x[1] <<  ")";
+ 
 				geometry_msgs::Point pt;
 
-				for(int i = 0; i < grid_ratio[0]; i++) {
-					for(int j = 0; j < grid_ratio[1]; j++) {
-						if(maps[cord[0] + i][cord[1] + j] != 0){
-							pt.x = x[1];
-							pt.y = x[0];
-							points.points.push_back(pt);
-							obs_pub.publish(points);
+				for(int i = 0; i < grid_ratio[1]; i++) {
+					for(int j = 0; j < grid_ratio[0]; j++) {
+						if(maps[cord[1] + i][cord[0] + j] != 0){
+							// pt.x = x[0] + 0.05;
+							// pt.y = x[1] + 0.05;
+							// points.points.push_back(pt);
+							// markers_pub.publish(points);
 							return true;
 						}
 					}
@@ -381,7 +448,8 @@ class scotsActionServer
 			scots::StaticController controller = getController(ss, is, tf, s_eta, goal->targets[1]);
 
 			std::cout << "\n\nTarget Locked, starting to proceed." << std::endl;
-			success = reachTarget(success, controller, goal->targets[0]);
+			success = reachTarget(success, controller, goal->targets[1]);
+			// success = simulatePath(success, controller, goal->targets[1]);
 
 			if(success) {
 				result_.target_id = 0;
