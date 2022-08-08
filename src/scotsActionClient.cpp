@@ -71,7 +71,7 @@ int main(int argc, char** argv) {
 	// adding targets to the goal
 	std::vector<std::vector<double>> target_data = {
 		{9.80, 10.2, 8.80, 9.20},
-		{0.35, 0.70, 2.70, 3.05},
+		{7.80, 8.20, 10.8, 11.2},
 		{2.50, 2.85, 0.65, 1.00},
 		{3.10, 3.50, 2.45, 2.85}
 	};

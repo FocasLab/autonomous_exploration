@@ -102,10 +102,6 @@ class scotsActionServer
 		{
 		}
 
-		double get_points_in_line(const Eigen::Vector2d &pt1, const Eigen::Vector2d &pt2, const Eigen::Vector2d &query_point) {
-			return ((query_point.y() - pt1.y()) * (pt2.x() - pt1.x())) - ((query_point.x() - pt1.x()) * (pt2.y() - pt1.y()));
-		}
-
 		void robotPoseCallback_1(const phasespace_msgs::Markers &msg) {
 			phasespace_msgs::Marker marker_dyn = msg.markers[0];
 			phasespace_msgs::Marker marker_ori = msg.markers[1];
@@ -197,7 +193,7 @@ class scotsActionServer
 			ros::Duration(1).sleep();
 			geometry_msgs::Twist vel_msg_turtle;
 
-			ros::Rate rate(0.5);
+			ros::Rate rate(10);
 
 			while(ros::ok()) {
 				
@@ -251,8 +247,6 @@ class scotsActionServer
 				// 	// messages in your 3 secondperiod
 				// 	ros::Duration(0.1).sleep();
 				// }
-
-				// r.sleep();
 			}
 			return success;
 		}
@@ -275,8 +269,8 @@ class scotsActionServer
 				r[1] = r[1] + r[2] * std::abs(u[0]) * tau;
 			};
 			
-			state_type s_lb={{8, 8, -3.5}};
-			state_type s_ub={{12, 12, 3.5}};
+			state_type s_lb={{2, 6, -3.5}};
+			state_type s_ub={{12, 16, 3.5}};
 			state_type s_eta={{.1, .1, .2}};
 
 			scots::UniformGrid ss(state_dim, s_lb, s_ub, s_eta);
@@ -311,7 +305,7 @@ class scotsActionServer
 
 			points.color.r = 1.0f;
 			points.color.g = 1.0f;
-			points.color.a = 1.0;
+			points.color.a = 0.7;
 
 			points.lifetime = ros::Duration();
 
@@ -333,8 +327,8 @@ class scotsActionServer
 				for(int i = 0; i < grid_ratio[0]; i++) {
 					for(int j = 0; j < grid_ratio[1]; j++) {
 						if(maps[cord[0] + i][cord[1] + j] != 0){
-							pt.x = x[0];
-							pt.y = x[1];
+							pt.x = x[1];
+							pt.y = x[0];
 							points.points.push_back(pt);
 							obs_pub.publish(points);
 							return true;
@@ -384,7 +378,7 @@ class scotsActionServer
 			// 	controllers.push_back(getController(ss, s_eta, goal->targets[i]));
 			// }
 
-			scots::StaticController controller = getController(ss, is, tf, s_eta, goal->targets[0]);
+			scots::StaticController controller = getController(ss, is, tf, s_eta, goal->targets[1]);
 
 			std::cout << "\n\nTarget Locked, starting to proceed." << std::endl;
 			success = reachTarget(success, controller, goal->targets[0]);
