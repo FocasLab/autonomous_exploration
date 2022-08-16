@@ -5,6 +5,7 @@ project(autonomous_exploration)
 # add_compile_options(-std=c++11)
 
 find_package(catkin REQUIRED COMPONENTS
+  std_srvs
   geometry_msgs
   phasespace_msgs
   actionlib_msgs

@@ -16,6 +16,7 @@
 #include <geometry_msgs/Twist.h>
 #include <geometry_msgs/Point.h>
 #include <nav_msgs/OccupancyGrid.h>
+#include <std_srvs/Empty.h>
 
 // rviz visualization
 #include <visualization_msgs/Marker.h>
@@ -74,6 +75,10 @@ class scotsActionServer
 		std::string map_topic_name = "/map";
 		ros::Subscriber map_sub = nh_.subscribe(map_topic_name, 10, &scotsActionServer::mapCallback, this);
 
+		// origin update client
+		std::string origin_update_topic_name = "/update_origin";
+		ros::ServiceClient origin_update_client = nh_.serviceClient<std_srvs::Empty>(origin_update_topic_name);
+
 		// obstacle visualization
 		std::string obs_topic_name = "/scots_visualization";
 		ros::Publisher markers_pub = nh_.advertise<visualization_msgs::Marker>(obs_topic_name, 10);
@@ -101,11 +106,12 @@ class scotsActionServer
 	public:
 		scotsActionServer(std::string name) : 
 		// Bind the callback to the action server. False is for thread spinning
-		as_(nh_, name, boost::bind(&scotsActionServer::processGoal_1, this, _1), false),
+		as_(nh_, name, boost::bind(&scotsActionServer::processGoal, this, _1), false),
 		action_name_(name) {
 			as_.start();
-
 			std::cout << "Scots Action Server is started, now you can send the goals." << std::endl;
+
+			ros::service::waitForService(origin_update_topic_name, ros::Duration(5));
 		}
 
 		~scotsActionServer(void)
@@ -492,6 +498,11 @@ class scotsActionServer
 			scots::UniformGrid is(input_dim, i_lb, i_ub, i_eta);
 			std::cout << std::endl;	
 			is.print_info();
+
+			// update the origin
+			std_srvs::Empty::Request req;
+			std_srvs::Empty::Response resp;
+			bool origin_update_success = origin_update_client.call(req, resp);
 
 			// result parameter
 			bool success = false;

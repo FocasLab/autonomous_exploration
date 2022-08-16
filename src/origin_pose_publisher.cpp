@@ -13,14 +13,28 @@
 #include <geometry_msgs/TransformStamped.h>
 #include <nav_msgs/MapMetaData.h>
 
+#include <std_srvs/Empty.h>
+
 // global variables for storing the pose
-geometry_msgs::Point position;
-geometry_msgs::Quaternion orientation;
+geometry_msgs::Point position, updated_position;
+geometry_msgs::Quaternion orientation, updated_orientation;
 
 // map metadata callback & origin publisher
 void mapMetaDataCallback(const nav_msgs::MapMetaData::ConstPtr &msg) {
-	position = msg->origin.position;
-	orientation = msg->origin.orientation;
+	updated_position = msg->origin.position;
+	updated_orientation = msg->origin.orientation;
+}
+
+// on request update the origin pose
+bool updateOriginPose(std_srvs::Empty::Request &req, std_srvs::Empty::Response &resp) {
+	position = updated_position;
+	orientation = updated_orientation;
+
+	ROS_INFO_STREAM("Origin Pose Updated..");
+	return true;
+
+	// resp.success = true;
+	// resp.message = "Origin Pose Updated..";
 }
 
 int main(int argc, char** argv) {
@@ -42,7 +56,10 @@ int main(int argc, char** argv) {
 	ROS_INFO_STREAM("Origin Defined..");
   
 	// Map metadata subscriber
-	ros::Subscriber mapdata_sub = nh.subscribe("/map_metadata", 0, mapMetaDataCallback);
+	ros::Subscriber mapdata_sub = nh.subscribe("/map_metadata", 0, &mapMetaDataCallback);
+
+	// Empty Service server
+	ros::ServiceServer update_server = nh.advertiseService("/update_origin", &updateOriginPose);
 
 	// loop rate for while loop (default ferq 1 hz)
 	ros::Rate rate(broadcast_frequency);
@@ -51,11 +68,8 @@ int main(int argc, char** argv) {
 	static tf2_ros::StaticTransformBroadcaster br;
 	geometry_msgs::TransformStamped transformStamped;
 
-	ros::Duration(2.0).sleep();
-	ros::spinOnce();
-
 	while(ros::ok()) {
-		// ros::spinOnce();
+		ros::spinOnce();
 
 		// storing the data
 		transformStamped.header.stamp = ros::Time::now();
