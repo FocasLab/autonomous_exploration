@@ -9,7 +9,7 @@
 
 // ros includes
 #include <ros/ros.h>
-#include <tf2_ros/transform_broadcaster.h>
+#include <tf2_ros/static_transform_broadcaster.h>
 #include <geometry_msgs/TransformStamped.h>
 #include <nav_msgs/MapMetaData.h>
 
@@ -48,11 +48,14 @@ int main(int argc, char** argv) {
 	ros::Rate rate(broadcast_frequency);
 
 	// Transform broadcaster
-	static tf2_ros::TransformBroadcaster br;
+	static tf2_ros::StaticTransformBroadcaster br;
 	geometry_msgs::TransformStamped transformStamped;
 
+	ros::Duration(2.0).sleep();
+	ros::spinOnce();
+
 	while(ros::ok()) {
-		ros::spinOnce();
+		// ros::spinOnce();
 
 		// storing the data
 		transformStamped.header.stamp = ros::Time::now();
