@@ -10,7 +10,6 @@
 #include <actionlib/client/terminal_state.h>
 #include <autonomous_exploration/autoExplAction.h>
 #include <autonomous_exploration/Target.h>
-#include <autonomous_exploration/Obstacle.h>
 
 // obstacle includes
 #include <geometry_msgs/Pose2D.h>
@@ -18,9 +17,6 @@
 // stl includes
 #include <iostream>
 #include <vector>
-#include <array>
-#include <cmath>
-#include <Eigen/Dense>
 
 int main(int argc, char** argv) {
 	// ros node initialize
@@ -37,36 +33,6 @@ int main(int argc, char** argv) {
 	std::cout << "Action server is started, sending goals.." << std::endl;
 
 	autonomous_exploration::autoExplGoal goal;
-
-	// adding obstacles to the goal
-	std::vector<std::vector<Eigen::Vector2d>> vertices = {
-		{{2.45, 1.15}, {2.90, 1.15}, {3.86, 1.95}, {3.86, 2.10}, 
-		 {2.95, 2.10}, {2.95, 1.95}, {2.90, 1.40}, {2.45, 1.40}, 
-		 {2.35, 1.95}, {2.35, 2.10}, {1.45, 2.10}, {1.45, 1.95}, 
-		 {2.45, 1.4}},
-		{{1.85, 3.20}, {3.35, 3.20}, {3.35, 3.35}, {1.85, 3.35}},
-	};
-	
-	// total number of obstacles
-	int num_obs = vertices.size();
-	
-	for(int i = 0; i < num_obs; i++) {
-		// total number of points in one obstacle
-		int num_points = vertices[i].size();
-		
-		// Obstacle data structure
-		autonomous_exploration::Obstacle obs;
-		obs.id = i;
-		
-		for(int j = 0; j < num_points; j++) {
-			geometry_msgs::Point point;
-			point.x = vertices[i][j][0];
-			point.y = vertices[i][j][1];
-			obs.points.push_back(point);
-		}
-		// adding all the obstacles.
-		goal.obstacles.push_back(obs);
-	}
 
 	// adding targets to the goal
 	std::vector<std::vector<double>> target_data = {
