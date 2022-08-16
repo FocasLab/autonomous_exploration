@@ -523,24 +523,6 @@ class scotsActionServer
 						}
 					}
 				}
-
-				// std::vector<int> grid_ratio {int(s_eta[0] / resolution), int(s_eta[1] / resolution)};
-
-				// std::vector<int> cord {int(x[0] / resolution), int(x[1] / resolution)};
- 
-				// geometry_msgs::Point pt;
-
-				// for(int i = -3; i < grid_ratio[1]; i++) {
-				// 	for(int j = -3; j < grid_ratio[0]; j++) {
-				// 		if(maps[cord[1] + i + 3][cord[0] + j + 3] != 0){
-				// 			pt.x = x[0] + 0.05;
-				// 			pt.y = x[1] + 0.05;
-				// 			points.points.push_back(pt);
-				// 			markers_pub.publish(points);
-				// 			return true;
-				// 		}
-				// 	}
-				// }
 				return false;
 			};
 
