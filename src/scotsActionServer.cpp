@@ -526,23 +526,6 @@ class scotsActionServer
 				return false;
 			};
 
-			// Parsing obstacles
-			// int num_obs = goal->obstacles.size();
-
-			// std::vector<std::vector<Eigen::Vector2d>> vertices;
-
-			// for(int i = 0; i < num_obs; i++) {
-			// 	// For storing obstacle instance
-			// 	int num_points = goal->obstacles[i].points.size();
-			// 	std::vector<Eigen::Vector2d> inner_obs;
-
-			// 	for(int j = 0; j < num_points; j++) {
-			// 		Eigen::Vector2d point{goal->obstacles[i].points[j].x, goal->obstacles[i].points[j].y};
-			// 		inner_obs.push_back(point);
-			// 	}
-			// 	vertices.push_back(inner_obs);
-			// }
-
 			std::cout << "\nComputing the transition function." << std::endl;
   
 			/* transition function of symbolic model */
