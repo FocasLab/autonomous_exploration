@@ -1,271 +1,334 @@
 #!/usr/bin/env python3
-from typing import final
-import numpy as np
+
+# ros includes
 import rospy
-from nav_msgs.msg import OccupancyGrid,MapMetaData
-from visualization_msgs.msg import Marker
-from geometry_msgs.msg import Quaternion, Pose, Point, Vector3 
-from std_msgs.msg import Header, ColorRGBA
+import actionlib
+from autonomous_exploration.msg import autoExplAction
+from autonomous_exploration.msg import autoExplGoal
+from autonomous_exploration.msg import Target
+from nav_msgs.msg import OccupancyGrid
+
+# other
+import numpy as np
+import threading
+from typing import final
 
 
-maps = []
-robot_max_dim = 0.2              # Maximum dimension of the robot in meters
-robot_min_dim = 0.2              # Minimum dimension of the robot in meters
-target_window = 7                # size of the target in meters, note that it is a square and must always be an odd number
-grid_size = 0.05                 # Size of each grid in meters
-sensor_range = 8                 # Max range of the lidar in meters
-clearance = 0.2                  # The inflation of the robot for safety so it is not very close to the frontier or the obstacle
-frontier_clearance = 6           # The amount of spacing between robot and frontier, it must always be even
+class targetFinder:
+	"""docstring for targetFinder"""
+	def __init__(self, resolution=0.05, target_window=8, clearance=0.2, frontier_clearance=4, robot_dimensions=[0.2, 0.2]):
+
+		assert isinstance(target_window, (int)), "Target window must be integer, Recieved type %r" % type(target_window).__name__
+		assert isinstance(frontier_clearance, (int)), "Frontier clearance must be integer, Recieved type %r" % type(frontier_clearance).__name__
+
+		assert round(robot_dimensions[0] * robot_dimensions[1], 2) <= round((resolution * target_window) ** 2, 2), "Robot size(area) must not be bigger than target window(area), given robot size is %r m*m, while target window is %r m*m" %(robot_dimensions[0] * robot_dimensions[1], (resolution * target_window) ** 2)
+		assert target_window >= 9, "Target window must be greater than 9 (0.4*0.4 m*m), Recieved %r" % target_window
+		assert target_window % 2 != 0, "Target window must be an odd number, Recieved %r" % target_window
+		assert clearance > resolution, "Clearance must not be less than resolution, Recieved clearance is %r, and resolution is %r" % (clearance, resolution)
+
+		self.resolution = resolution					# Size of each grid in meters
+		self.robot_max_length = robot_dimensions[0]		# Manimum length of the robot in meters
+		self.robot_max_width = robot_dimensions[1]		# Miximum width of the robot in meters
+		self.target_window = target_window				# size of the target window in pixel (to convert meters => target_window * resolution), note that it is a square and must always be an odd number
+		self.clearance = clearance						# The inflation of the robot for safety so it is not very close to the frontier or the obstacle
+		self.frontier_clearance = frontier_clearance	# The amount of spacing between robot and frontier, it must always be even
+
+		self._ac = actionlib.SimpleActionClient("/scots", autoExplAction)
+		self._ac.wait_for_server()
+
+		rospy.loginfo("Action Server is Up, starting to send goals.")
+
+	
+	def get_targets(self, maps, width, height):
+		"""
+		This function finds out all potential targets in the map
+		If a point is near to a frontier while also being far away enough from a wall, then a region around the point that is far enough from the frontier itself 
+		is chosen at the potential target
+
+		Parameters
+			The function only needs a map
+
+		Returns
+			It returns the start and end points of all the regions that can be chosen as targets
+		"""
+
+		maps = maps[0]
+		potential_targets = []
+		
+		clearance = self.clearance / self.resolution
+		cut_off = clearance // 2
+		frontier_window = self.target_window + self.frontier_clearance + clearance
+		
+		for i in range(width):
+			for j in range(height):
+				if maps[i][j] == 0:
+					[neighbor_map, x_s, y_s, x_e, y_e] = self.neighbors(frontier_window - 1, i, j, maps, width, height)
+					if not any(1 in n for n in neighbor_map):  # Check if there are any obstacles nearby
+						if any(-1 in n for n in neighbor_map):  # Check if there are any frontiers nearby
+							[target_map, x_start, y_start, x_end, y_end] = self.neighbors(self.target_window + clearance - 1, i, j, maps, width ,height)
+							if not any(-1 in n for n in target_map):  # Make sure there are no frontiers in the target
+								potential_targets.append([[x_start + cut_off, y_start + cut_off], [x_end - cut_off, y_end - cut_off]])
+
+		return potential_targets
+
+	
+	def neighbors(self, radius, row_number, column_number, submaps, width, height):
+		"""
+		This function finds (radius/2) number of neighbors of given point on all four sides
+
+		Parameters
+			radius: how many neighbors do you want to obtain either horizontally or vertically
+			row_number: x coordinate of the point
+			column_number: y coordinate of the point
+			submaps: The part of the map within which we find the neighbors
+
+		Returns
+			The function returns the neighbors and the x and y coordinates of the starting and ending element of the neighbors array with respect to the submap coordinate 
+		"""
+
+		radius = int(radius // 2)
+
+		# If the selected has neighbors all around it within the map
+		if row_number < width - radius and column_number < height - radius and row_number > radius and column_number > radius: 
+			return submaps[row_number - radius : row_number + radius, column_number - radius : column_number + radius], row_number - radius, column_number - radius, row_number + radius, column_number + radius
+		else:
+			return [[]], row_number - radius, column_number - radius, row_number + radius, column_number + radius
+
+	
+	def split_targets(self, final_targets, len_of_map, height_of_map):
+		"""
+		This function splits the target into four based on which quadrant they are located in
+
+		Parameters
+			final_targets: The targets that have been found in the entire map
+			len_of_map: The length of the map
+			height_of_map: The height of the map
+		
+		Return
+			split_quads: The list of points that have been segregated based on the quadrant they are in
+		"""
+
+		first_quad_targets = []
+		second_quad_targets = []
+		third_quad_targets = []
+		fourth_quad_targets = []
+		split_quads = []
+		
+		half_len = len_of_map // 2
+		half_height = height_of_map // 2
+		
+		for i in range(len(final_targets)):
+			if final_targets[i][0][0] <= half_len and final_targets[i][0][0] >= 0 and final_targets[i][0][1] <= half_height and final_targets[i][0][1] >= 0 and final_targets[i][1][0] <= half_len and final_targets[i][1][0] >= 0 and final_targets[i][1][1] <= half_height and final_targets[i][1][1] >= 0:
+			### If the target point is in the first quadrant which is between 0 to halfway in x and 0 to halfway in y
+				first_quad_targets.append(final_targets[i])
+			if final_targets[i][0][0] <= half_len and final_targets[i][0][0] >= 0 and final_targets[i][0][1] >= half_height and final_targets[i][0][1] <= height_of_map and final_targets[i][1][0] <= half_len and final_targets[i][1][0] >= 0 and final_targets[i][1][1] >= half_height and final_targets[i][1][1] <= height_of_map:
+			### If the target point is in the second quadrant which is betwwen 0 to halfway in x and halfway to end in y
+				second_quad_targets.append(final_targets[i])
+			if final_targets[i][0][0] >= half_len and final_targets[i][0][0] <= len_of_map and final_targets[i][0][1] <= half_height and final_targets[i][0][1] >= 0 and final_targets[i][1][0] >= half_len and final_targets[i][1][0] <= len_of_map and final_targets[i][1][1] <= half_height and final_targets[i][1][1] >= 0:
+			### If the target point is in the third quadrant which is betwwen halfway to end of x and 0 to halfway in y
+				third_quad_targets.append(final_targets[i])
+			if final_targets[i][0][0] >= half_len and final_targets[i][0][0] <= len_of_map and final_targets[i][0][1] >= half_height and final_targets[i][0][1] <= height_of_map and final_targets[i][1][0] >= half_len and final_targets[i][1][0] <= len_of_map and final_targets[i][1][1] >= half_height and final_targets[i][1][1] <= height_of_map:
+			### If the target point is in the fourth quadrant which is betwwen halfway to end of x and halfway to end in y
+				fourth_quad_targets.append(final_targets[i])
+		
+		first_quad_targets.append([])
+		second_quad_targets.append([])
+		third_quad_targets.append([])
+		fourth_quad_targets.append([])
+		
+		split_quads.append(first_quad_targets)
+		split_quads.append(second_quad_targets)
+		split_quads.append(third_quad_targets)
+		split_quads.append(fourth_quad_targets)
+		
+		return split_quads
+
+	
+	def split_map(self, maps, width, height):
+		"""
+		This function splits the map into four parts
+
+		Parameter
+			maps: The map that has to be split
+
+		Returns
+			submaps: The four submaps sent back within one array
+			sums: The negative of the number of unexplored gridpoints
+		"""
+
+		sums = [] # Stores the sums of each submap
+		submaps = [] # Stores the submaps
+		
+		for i in range(2):
+			submaps.append(maps[len(maps) - 1][i * width // 2 : (i + 1) * width // 2, 0 : height // 2]) # Dividing the map in half horizontally
+			submaps.append(maps[len(maps) - 1][i * width // 2 : (i + 1) * width // 2, height // 2 : height])
+	   
+		# Stores the sum of all unexplored areas
+		for i in range(4):
+			t_sum = 0
+			for j in range(len(submaps[i])):
+				for k in range(len(submaps[i][0])):
+					if (submaps[i][j][k] == -1):
+						t_sum += 1
+			sums.append(-t_sum)
+		
+		return submaps, sums
+	
+	
+	def rank_targets(self, maps, segregated_target, width, height):
+		"""
+		This function ranks the targets based on the area of unexplored region. More the unexplored area, higher the rank
+
+		Parameters
+			maps: The map within which the unexplored areas are present
+			segregated_target: targets that have been segregated based on their quadrant of location
+
+		Return
+			rank_index: This is a list of the indices ranked regions in the ranked order
+		"""
+
+		rank_index = []
+		[submaps, sums] = self.split_map(maps, width, height)
+		max_indices = np.argsort(sums)
+		
+		for i in range(4):
+			# If the quadrant that has more unexplored region does not have any potential targets, they are not considered
+			if (segregated_target[max_indices[i]] == [[]]):
+				pass
+			else:
+				rank_index.append(max_indices[i])
+
+		return rank_index
+
+	
+	def get_best_targets(self, segregated_targets, max_indices):
+		"""
+		This function returns the middle portion of the frontier in the ranked region. The first element of best_target is best region
+
+		Parameters
+			segregated_target: targets that have been segregated based on their quadrant of location
+			max_indices: The indices of the maximum unexplored region submap to the minimum unexplored submap
+
+		Returns
+			best_targets: Gives the targets at the frontier. First element is the best target
+		"""
+
+		best_targets = []
+
+		for i in range(len(max_indices)):
+			best_targets.append(segregated_targets[max_indices[i]][len(segregated_targets[max_indices[i]]) // 2])
+		
+		return best_targets
 
 
-def map_callback(data):
-    m = MapMetaData()
-    width = data.info.width
-    height = data.info.height
-    resolution = data.info.resolution
-    length = len(data.data)
-    
-    rospy.loginfo('width: {}'.format(width))
-    rospy.loginfo('height: {}'.format(height))
-    rospy.loginfo('resolution: {}'.format(resolution))
-    rospy.loginfo('length: {}'.format(length))
+class scotsActionClient:
+	"""docstring for scotsActionClient"""
+	def __init__(self):
 
-    map_image = np.zeros((height,width, 1), dtype = "int8")
-    for i in range(0,height):
-        for j in range(0,width):
-            if data.data[(i)*width+j] > 0 :
-                map_image[i][j] = 1
-            else:
-                map_image[i][j] = int(data.data[(i)*width+j])
+		self.total_systhessis_time = 0
+		self.total_completion_time = 0
 
-    # print(list(map_image.T))
-    maps = list(map_image.T)
+		self._ac = actionlib.SimpleActionClient("/scots", autoExplAction)
+		self._ac.wait_for_server()
 
-    final_targets = get_targets(maps, width,  height)
-    segregated_target = split_targets(final_targets, width, height)
-    max_indices = rank_targets(maps, segregated_target, width, height)
-    final_target = get_best_targets(segregated_target, max_indices)
-    print(final_targets)
-    # print(max_indices)
-    # print(segregated_target)
-    print(final_target)
-    pub_marker(final_target)
-        
+		rospy.loginfo("Action Server is Up, starting to send goals.")
 
+	# Function to send Goals to Action Servers
+	def send_goal(self, targets):
+		
+		# Create Goal message for Simple Action Server
+		goal = autoExplGoal(targets=targets)
+		
+		'''
+			* done_cb is set to the function pointer of the function which should be called once 
+				the Goal is processed by the Simple Action Server.
 
-def pub_marker(final_target):
-    points = Marker()
-    p = Point()
+			* feedback_cb is set to the function pointer of the function which should be called while
+				the goal is being processed by the Simple Action Server.
+		''' 
+		self._ac.send_goal(goal, done_cb=self.done_callback, feedback_cb=self.feedback_callback)
+		
+		rospy.loginfo("Goal has been sent.")
 
-    points.header.frame_id = "origin"
-    points.header.stamp = rospy.Time.now()
-
-    # set shape, Arrow: 0; Cube: 1 ; Sphere: 2 ; Cylinder: 3
-    points.type = Marker.POINTS
-    points.id = 0
-
-    # Set the scale of the marker
-    points.scale.x = 0.05
-    points.scale.y = 0.05
-    points.scale.z = 0.05
-
-    # Set the color
-    points.color.r = 0
-    points.color.g = 1.0
-    points.color.b = 0.0
-    points.color.a = 1.0
-
-    points.points = []
-    for i in range(len(final_target)):
-        for j in range(len(final_target[0])):
-            points.points.append(Point(final_target[i][j][0]*0.05,final_target[i][j][1]*0.05,0))
-
-    marker_pub.publish(points)
-
-def calc_target_window():
-    """
-    This function checks if the target window given is adequate for safety of the robot and for obtaining sufficient winning domain
-
-    Parameters
-        All parameters are set as global variables
-
-    Returns
-        The function prints to the console
-    """
-    if robot_max_dim*robot_min_dim >= (grid_size*target_window)^2:                                             # If the robot is bigger than the target window
-        print("The robot is too big. Increase the target window")
-    elif target_window<7:                                                                                      # If the target window is smaller than 0.35mX0.35m
-        print("The size of the target window is too small. Please increase the target window size")
-
-def get_targets(maps, s, h):
-    """
-    This function finds out all potential targets in the map
-    If a point is near to a frontier while also being far away enough from a wall, then a region around the point that is far enough from the frontier itself 
-    is chosen at the potential target
-
-    Parameters
-        The function only needs a map
-
-    Returns
-        It returns the start and end points of all the regions that can be chosen as targets
-    """
-    clearance = 0.2
-    maps = maps[0]
-    if clearance < grid_size:
-        print("Clearance is smaller than the grid size, make it bigger and divisible by the grid size")
-    elif target_window//2 == 0:
-        print("Target window size must be an odd number")
-    else:
-        clearance = clearance/grid_size
-        cut_off = clearance//2
-        potential_targets = []
-        frontier_window = target_window+frontier_clearance+clearance
-        for i in range(s):
-            for j in range(h):
-                if maps[i][j] == 0:
-                    [neighbor_map, x_s, y_s, x_e, y_e] = neighbors(frontier_window-1, i, j, maps, s, h)
-                    if not any(1 in n for n in neighbor_map):                                                   # Check if there are any obstacles nearby
-                        if any(-1 in n for n in neighbor_map):                                                  # Check if there are any frontiers nearby
-                            [target_map, x_start, y_start,x_end, y_end] = neighbors(target_window+clearance-1, i, j, maps,s ,h)
-                            if not any(-1 in n for n in target_map):                                            # Make sure there are no frontiers in the target
-                                potential_targets.append([[x_start+cut_off, y_start+cut_off],[x_end-cut_off, y_end-cut_off]])
-    return potential_targets
+	def done_callback(self, status, result):
+		self.total_systhessis_time += result.synthesis_time
+		self.total_completion_time += result.completion_time
+		
+		rospy.loginfo("Target id, {}".format(result.target_id))
+		rospy.loginfo("Synthesis Time, {}".format(result.synthesis_time))
+		rospy.loginfo("Completion Time,  {}".format(result.completion_time))
 
 
-# Function to find the nearest radius number of neighbors
-def neighbors(radius, row_number, column_number, submaps, s, h):
-    """
-    This function finds (radius/2) number of neighbors of given point on all four sides
+	def feedback_callback(self, feedback):
+		rospy.loginfo("Current Pose: ({}, {}, {})".format(round(feedback.curr_pose.x, 2), round(feedback.curr_pose.y, 2), round(feedback.curr_pose.theta, 2)))
 
-    Parameters
-        radius: how many neighbors do you want to obtain either horizontally or vertically
-        row_number: x coordinate of the point
-        column_number: y coordinate of the point
-        submaps: The part of the map within which we find the neighbors
+class mapData:
+	"""docstring for mapData"""
+	def __init__(self, action_client, target_finder):
+		self.width = 0
+		self.height = 0
+		self.resolution = 0
+		self.maps = list()
 
-    Returns
-        The function returns the neighbors and the x and y coordinates of the starting and ending element of the neighbors array with respect to the submap coordinate 
-    """
-    radius = int(radius//2)
-    if row_number<s-radius and column_number<h-radius and row_number>radius and column_number>radius:                        # If the selected has neighbors all around it within the map
-        return submaps[row_number-radius:row_number+radius, column_number-radius:column_number+radius], row_number-radius, column_number-radius, row_number+radius, column_number+radius
-    else:
-        return [[]], row_number-radius, column_number-radius, row_number+radius, column_number+radius
+		self.action_client = action_client
+		self.target_finder = target_finder
 
-def rank_targets(maps, segregated_target, s, h):
-    """
-    This function ranks the targets based on the area of unexplored region. More the unexplored area, higher the rank
+		self.map_topic_name = "/map"
+		self.map_sub_handle = rospy.Subscriber(self.map_topic_name, OccupancyGrid, self.mapDataCallback)
 
-    Parameters
-        maps: The map within which the unexplored areas are present
-        segregated_target: targets that have been segregated based on their quadrant of location
+	def mapDataCallback(self, msg):
+		self.width = msg.info.width
+		self.height = msg.info.height
+		self.resolution = msg.info.resolution
 
-    Return
-        rank_index: This is a list of the indices ranked regions in the ranked order
-    """
-    no_of_iter = len(maps[0])//sensor_range
-    [submaps, sums] = splitMap(maps, s, h)
-    max_indices = np.argsort(sums)
-    rank_index = []
-    #print(sums)
-    # print(segregated_target[3])
-    for i in range(4):
-        if (segregated_target[max_indices[i]] == [[]]):         # If the quadrant that has more unexplored region does not have any potential targets, they are not considered
-            pass
-        else:
-            rank_index.append(max_indices[i])
-    return rank_index
+		map_image = np.zeros((self.height, self.width, 1), dtype="int8")
+		for i in range(0, self.height):
+			for j in range(0, self.width):
+				if msg.data[i * self.width + j] > 0 :
+					map_image[i][j] = 1
+				else:
+					map_image[i][j] = int(msg.data[i * self.width + j])
 
-def get_best_targets(segregated_targets, max_indices):
-    """
-    This function returns the middle portion of the frontier in the ranked region. The first element of best_target is best region
+		self.maps = list(map_image.T)
 
-    Parameters
-        segregated_target: targets that have been segregated based on their quadrant of location
-        max_indices: The indices of the maximum unexplored region submap to the minimum unexplored submap
+		# all_targets = target_finder.get_targets(self.maps, self.width, self.height)
+		# segregated_targets = target_finder.split_targets(all_targets, self.width, self.height)
+		# max_indices = target_finder.rank_targets(self.maps, segregated_targets, self.width, self.height)
+		# final_target = target_finder.get_best_targets(segregated_targets, max_indices)
 
-    Returns
-        best_targets: Gives the targets at the frontier. First element is the best target
-    """
-    best_targets = []
-    for i in range(len(max_indices)):
-        best_targets.append(segregated_targets[max_indices[i]][len(segregated_targets[max_indices[i]])//2])
-    return best_targets
+		# print(final_target)
+		# targets = []
 
-def split_targets(final_targets, len_of_map, height_of_map):
-    """
-    This function splits the target into four based on which quadrant they are located in
+		# if(len(final_target) > 0):
+		# 	for i in range(len(final_target)):
+		# 		tr = Target()
+		# 		tr.id = i
+		# 		for j in range(len(final_target[i])):
+		# 			tr.points.append(round(final_target[i][j][0] * 0.05, 2))
+		# 		for j in range(len(final_target[i])):
+		# 			tr.points.append(round(final_target[i][j][1] * 0.05, 2))
+		# 		targets.append(tr)
 
-    Parameters
-        final_targets: The targets that have been found in the entire map
-        len_of_map: The length of the map
-        height_of_map: The height of the map
-    
-    Return
-        split_quads: The list of points that have been segregated based on the quadrant they are in
-    """
-    first_quad_targets = []
-    second_quad_targets = []
-    third_quad_targets = []
-    fourth_quad_targets = []
-    split_quads = []
-    half_len = len_of_map//2
-    half_height = height_of_map//2
-    for i in range(len(final_targets)):
-        if final_targets[i][0][0] <= half_len and final_targets[i][0][0] >= 0 and final_targets[i][0][1] <= half_height and final_targets[i][0][1] >= 0 and final_targets[i][1][0] <= half_len and final_targets[i][1][0] >= 0 and final_targets[i][1][1] <= half_height and final_targets[i][1][1] >= 0:
-        ### If the target point is in the first quadrant which is between 0 to halfway in x and 0 to halfway in y
-            first_quad_targets.append(final_targets[i])
-        if final_targets[i][0][0] <= half_len and final_targets[i][0][0] >= 0 and final_targets[i][0][1] >= half_height and final_targets[i][0][1] <= height_of_map and final_targets[i][1][0] <= half_len and final_targets[i][1][0] >= 0 and final_targets[i][1][1] >= half_height and final_targets[i][1][1] <= height_of_map:
-        ### If the target point is in the second quadrant which is betwwen 0 to halfway in x and halfway to end in y
-            second_quad_targets.append(final_targets[i])
-        if final_targets[i][0][0] >= half_len and final_targets[i][0][0] <= len_of_map and final_targets[i][0][1] <= half_height and final_targets[i][0][1] >= 0 and final_targets[i][1][0] >= half_len and final_targets[i][1][0] <= len_of_map and final_targets[i][1][1] <= half_height and final_targets[i][1][1] >= 0:
-        ### If the target point is in the third quadrant which is betwwen halfway to end of x and 0 to halfway in y
-            third_quad_targets.append(final_targets[i])
-        if final_targets[i][0][0] >= half_len and final_targets[i][0][0] <= len_of_map and final_targets[i][0][1] >= half_height and final_targets[i][0][1] <= height_of_map and final_targets[i][1][0] >= half_len and final_targets[i][1][0] <= len_of_map and final_targets[i][1][1] >= half_height and final_targets[i][1][1] <= height_of_map:
-        ### If the target point is in the fourth quadrant which is betwwen halfway to end of x and halfway to end in y
-            fourth_quad_targets.append(final_targets[i])
-    first_quad_targets.append([])
-    second_quad_targets.append([])
-    third_quad_targets.append([])
-    fourth_quad_targets.append([])
-    split_quads.append(first_quad_targets)
-    split_quads.append(second_quad_targets)
-    split_quads.append(third_quad_targets)
-    split_quads.append(fourth_quad_targets)
-    return split_quads
+		# 	self.action_client.send_goal(targets)
+		# 	print("Goal sent..")
+		# 	self.action_client._ac.wait_for_result()
+		# else:
+		# 	print("No targets..")
 
-def splitMap(maps, s, h):
-    """
-    This function splits the map into four parts
+	def getMap(self):
+		return self.maps
 
-    Parameter
-        maps: The map that has to be split
-
-    Returns
-        submaps: The four submaps sent back within one array
-        sums: The negative of the number of unexplored gridpoints
-    """
-    sums = [] # Stores the sums of each submap
-    submaps = [] # Stores the submaps
-    for i in range(2):
-        submaps.append(maps[len(maps)-1][i*s//2:(i+1)*s//2, 0:h//2]) # Dividing the map in half horizontally
-        submaps.append(maps[len(maps)-1][i*s//2:(i+1)*s//2, h//2:h])
-   
-    # Stores the sum of all unexplored areas
-    for i in range(4):
-        sum = 0
-        for j in range(len(submaps[i])):
-            for k in range(len(submaps[i][0])):
-                if (submaps[i][j][k]==-1):
-                    sum += 1
-        sums.append(-sum)
-    return submaps, sums
+	def getMapDimensions(self):
+		return self.width, self.height, self.resolution
+		
 
 if __name__ == '__main__':
-    rospy.init_node("target_finder")
-    rospy.Subscriber("map",OccupancyGrid,map_callback)
-    marker_pub = rospy.Publisher("/visualization_marker", Marker, queue_size = 10)
-    rate = rospy.Rate(10)
 
-    while not rospy.is_shutdown():
-        rate.sleep()
+	rospy.init_node("target_finder")
+
+	action_client = scotsActionClient()
+	target_finder = targetFinder(resolution=0.05, target_window=9, clearance=0.2, frontier_clearance=4, robot_dimensions=[0.2, 0.2])
+	
+	mapdata = mapData(action_client, target_finder)
+	
+	rospy.spin()
