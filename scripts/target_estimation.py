@@ -17,24 +17,20 @@ from typing import final
 
 class targetFinder:
 	"""docstring for targetFinder"""
-	def __init__(self, resolution=0.05, target_window=8, clearance=0.2, frontier_clearance=4, robot_dimensions=[0.2, 0.2]):
+	def __init__(self, resolution=0.05, target_window=9, robot_dimensions=[0.2, 0.2]):
 
 		assert isinstance(target_window, (int)), "Target window must be integer, Recieved type %r" % type(target_window).__name__
-		assert isinstance(frontier_clearance, (int)), "Frontier clearance must be integer, Recieved type %r" % type(frontier_clearance).__name__
 
 		assert round(robot_dimensions[0] * robot_dimensions[1], 2) <= round((resolution * target_window) ** 2, 2), "Robot size(area) must not be bigger than target window(area), given robot size is %r m*m, while target window is %r m*m" %(robot_dimensions[0] * robot_dimensions[1], (resolution * target_window) ** 2)
-		assert target_window >= 9, "Target window must be greater than 9 (0.4*0.4 m*m), Recieved %r" % target_window
+		assert target_window >= 9, "Target window must be greater than or equal to 9 (0.4*0.4 m*m), Recieved %r" % target_window
 		assert target_window % 2 != 0, "Target window must be an odd number, Recieved %r" % target_window
-		assert clearance > resolution, "Clearance must not be less than resolution, Recieved clearance is %r, and resolution is %r" % (clearance, resolution)
 
 		self.resolution = resolution					# Size of each grid in meters
 		self.robot_max_length = robot_dimensions[0]		# Manimum length of the robot in meters
 		self.robot_max_width = robot_dimensions[1]		# Miximum width of the robot in meters
 		self.target_window = target_window				# size of the target window in pixel (to convert meters => target_window * resolution), note that it is a square and must always be an odd number
-		self.clearance = clearance						# The inflation of the robot for safety so it is not very close to the frontier or the obstacle
-		self.frontier_clearance = frontier_clearance	# The amount of spacing between robot and frontier, it must always be even
 	
-	def get_targets(self, maps, width, height):
+	def get_targets(self, clearance, frontier_clearance, maps, width, height):
 		"""
 		This function finds out all potential targets in the map
 		If a point is near to a frontier while also being far away enough from a wall, then a region around the point that is far enough from the frontier itself 
@@ -47,12 +43,16 @@ class targetFinder:
 			It returns the start and end points of all the regions that can be chosen as targets
 		"""
 
+		assert isinstance(frontier_clearance, (int)), "Frontier clearance must be integer, Recieved type %r" % type(frontier_clearance).__name__
+		assert frontier_clearance >= 2, "Frontier Clearance must be greater than or equal to 2, Recieved frontier clearance is %r" % frontier_clearance
+		assert clearance > self.resolution, "Clearance must not be less than resolution, Recieved clearance is %r, and resolution is %r" % (clearance, self.resolution)
+
 		maps = maps[0]
 		potential_targets = []
 		
-		clearance = self.clearance / self.resolution
+		clearance = clearance / self.resolution
 		cut_off = clearance // 2
-		frontier_window = self.target_window + self.frontier_clearance + clearance
+		frontier_window = self.target_window + frontier_clearance + clearance
 		
 		for i in range(width):
 			for j in range(height):
@@ -259,19 +259,26 @@ class scotsActionClient:
 
 class mapData:
 	"""docstring for mapData"""
-	def __init__(self):
+	def __init__(self, action_client):
 		self.width = 0
 		self.height = 0
 		self.resolution = 0
 		self.maps = list()
 
+		self.action_client = action_client
+
 		self.map_topic_name = "/map"
-		self.map_sub_handle = rospy.Subscriber(self.map_topic_name, OccupancyGrid, self.mapDataCallback)
+		self.map_sub_handle = rospy.Subscriber(self.map_topic_name, OccupancyGrid, self.map_data_callback)
 
 		rospy.loginfo("Waiting for data on /map topic..")
 		rospy.wait_for_message(self.map_topic_name, OccupancyGrid, timeout=10)
 
-	def mapDataCallback(self, msg):
+		self.if_send_new_goal = False
+		self.new_goal_service_name = "/new_goal"
+		self.new_goal_service = rospy.Service(self.new_goal_service_name, Empty, self.new_goal_callback)
+
+
+	def map_data_callback(self, msg):
 		self.width = msg.info.width
 		self.height = msg.info.height
 		self.resolution = msg.info.resolution
@@ -286,68 +293,92 @@ class mapData:
 
 		self.maps = list(map_image.T)
 
-	def getMap(self):
+	def new_goal_callback(self, req):
+		rospy.loginfo("Got new goal request.")
+		self.if_send_new_goal = True
+		return EmptyResponse()
+
+	def send_new_goal(self, targets):
+		if(self.if_send_new_goal):
+			rospy.loginfo("Sending new goal to action server.")
+			self.action_client.send_goal(targets)
+			self.if_send_new_goal = False
+		else:
+			rospy.loginfo("send_new_goal flag is false, goal not sent.")
+
+	def get_map(self):
 		return self.maps
 
-	def getMapDimensions(self):
+	def get_map_dimensions(self):
 		return self.width, self.height, self.resolution
+
+
+def get_safe_targets(target_finder, clearance, frontier_clearance, maps, width, height):
+	all_targets = target_finder.get_targets(clearance, frontier_clearance, maps, width, height)
+	segregated_targets = target_finder.split_targets(all_targets, width, height)
+	max_indices = target_finder.rank_targets(maps, segregated_targets, width, height)
+	safe_targets = target_finder.get_best_targets(segregated_targets, max_indices)
+
+	return safe_targets
 
 
 if __name__ == '__main__':
 
 	rospy.init_node("target_finder")
 
-	if_send_new_goal = True
-
-	def send_new_goal(req):
-		global if_send_new_goal
-		rospy.loginfo("Got new goal request.")
-		if_send_new_goal = True
-		return EmptyResponse()
-
-	new_goal_service_name = "/send_new_goal"
-	new_goal_service = rospy.Service(new_goal_service_name, Empty, send_new_goal)
-
-	mapdata = mapData()
-
 	action_client = scotsActionClient()
-	target_finder = targetFinder(resolution=0.05, target_window=9, clearance=0.2, frontier_clearance=2, robot_dimensions=[0.2, 0.2])
+	mapdata = mapData(action_client)
+
+	clearance = 0.3
+	frontier_clearance = 6
+
+	_w, _h, resolution = mapdata.get_map_dimensions()
+	
+	target_finder = targetFinder(resolution=resolution, target_window=9, robot_dimensions=[0.2, 0.2])
 
 	rate = rospy.Rate(1)
 
 	try:
 		while not rospy.is_shutdown():
-			maps = mapdata.getMap()
-			width, height, resolution = mapdata.getMapDimensions()
+			maps = mapdata.get_map()
+			width, height, resolution = mapdata.get_map_dimensions()
+
+			if(clearance < 0.1 or frontier_clearance < 2):
+				rospy.loginfo("Exploration is done.")
+				break
 
 			targets = []
+			safe_targets = get_safe_targets(target_finder, clearance, frontier_clearance, maps, width, height)
 
-			all_targets = target_finder.get_targets(maps, width, height)
-			segregated_targets = target_finder.split_targets(all_targets, width, height)
-			max_indices = target_finder.rank_targets(maps, segregated_targets, width, height)
-			safe_targets = target_finder.get_best_targets(segregated_targets, max_indices)
-
-			# print(safe_targets)
+			# print("Safe targets, %r" % safe_targets)
 
 			if(len(safe_targets) > 0):
 				for i in range(len(safe_targets)):
 					if not any(safe_targets[i]):
 						continue
+					
 					tr = Target()
 					tr.id = i
+					
 					for j in range(len(safe_targets[i])):
 						tr.points.append(round(safe_targets[i][j][0] * 0.05, 2))
 					for j in range(len(safe_targets[i])):
 						tr.points.append(round(safe_targets[i][j][1] * 0.05, 2))
+					
 					targets.append(tr)
 
-				if(if_send_new_goal):
-					print(targets)
-					action_client.send_goal(targets)
+				if any(targets) and mapdata.if_send_new_goal:
+					print("Goal targets, %r" % targets)
+					mapdata.send_new_goal(targets)
+					
+					# resetting the parameters
+					clearance = 0.3
+					frontier_clearance = 6
 					# action_client._ac.wait_for_result()
-					if_send_new_goal = False
 			else:
-				print("No targets..")
+				print("No targets.. reducing clearance and frontier_clearance.")
+				clearance -= 0.1
+				frontier_clearance -= 2
 
 			rate.sleep()
 	except KeyboardInterrupt:
