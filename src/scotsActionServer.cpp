@@ -75,12 +75,16 @@ class scotsActionServer
 		std::string map_topic_name = "/map";
 		ros::Subscriber map_sub;
 
+		// for services
+		std_srvs::Empty::Request req;
+		std_srvs::Empty::Response resp;
+
 		// origin update client
 		std::string origin_update_service_name = "/update_origin";
 		ros::ServiceClient origin_update_client;
 
 		// 
-		std::string send_new_goal_service_name = "/send_new_goal";
+		std::string send_new_goal_service_name = "/new_goal";
 		ros::ServiceClient send_new_goal_client;
 
 		// obstacle visualization
@@ -328,6 +332,28 @@ class scotsActionServer
 			return controller;
 		}
 
+		bool rotateRobotForSomeTime(const int time) {
+
+			geometry_msgs::Twist vel_msg_turtle;
+			vel_msg_turtle.linear.x = 0.0;
+			vel_msg_turtle.angular.z = 0.1;
+
+			// this is to maintain, that robot will receive same speed for tau time.
+			ros::Time beginTime = ros::Time::now();
+			ros::Duration secondsIWantToSendMessagesFor = ros::Duration(time);
+			ros::Time endTime = beginTime + secondsIWantToSendMessagesFor;
+
+			while(ros::Time::now() < endTime )
+			{
+				robot_vel.publish(vel_msg_turtle);
+
+				// Time between messages, so you don't blast out an thousands of
+				// messages in your tau secondperiod
+				ros::Duration(0.1).sleep();
+			}
+			return true;
+		}
+
 		bool reachTarget(bool &success, const scots::StaticController &controller, const autonomous_exploration::Target &tr) {
 			//defining dynamics of robot
 			auto vehicle_post = [](state_type &x, const input_type &u) {
@@ -406,6 +432,9 @@ class scotsActionServer
 					as_.publishFeedback(feedback_);
 				}
 				else {
+					// rotote the robot for some time so the map is updated (lidar is 360, but due to limitations of slam we rotating the robot.)
+					bool status = rotateRobotForSomeTime(10);
+
 					vel_msg_turtle.linear.x = 0.0;
 					vel_msg_turtle.angular.z = 0.0;
 
@@ -578,8 +607,6 @@ class scotsActionServer
 			is.print_info();
 
 			// update the origin
-			std_srvs::Empty::Request req;
-			std_srvs::Empty::Response resp;
 			bool origin_update_success = origin_update_client.call(req, resp);
 
 			// result parameter
@@ -669,14 +696,14 @@ int main(int argc, char** argv) {
 	// ros node initialize
 	ros::init(argc, argv, "scotsActionServer");
 
-	// ros::AsyncSpinner spinner(0);
- //    spinner.start();
+	ros::AsyncSpinner spinner(0);
+    spinner.start();
 
 	// Create an action server object and spin ROS
 	scotsActionServer scotsAS("/scots");
 
-	// ros::waitForShutdown();
-	ros::spin();
+	ros::waitForShutdown();
+	// ros::spin();
 
 	return 0;
 }
