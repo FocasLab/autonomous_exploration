@@ -7,6 +7,7 @@ from autonomous_exploration.msg import autoExplAction
 from autonomous_exploration.msg import autoExplGoal
 from autonomous_exploration.msg import Target
 from nav_msgs.msg import OccupancyGrid
+from std_srvs.srv import Empty, EmptyResponse
 
 # other
 import numpy as np
@@ -32,12 +33,6 @@ class targetFinder:
 		self.target_window = target_window				# size of the target window in pixel (to convert meters => target_window * resolution), note that it is a square and must always be an odd number
 		self.clearance = clearance						# The inflation of the robot for safety so it is not very close to the frontier or the obstacle
 		self.frontier_clearance = frontier_clearance	# The amount of spacing between robot and frontier, it must always be even
-
-		self._ac = actionlib.SimpleActionClient("/scots", autoExplAction)
-		self._ac.wait_for_server()
-
-		rospy.loginfo("Action Server is Up, starting to send goals.")
-
 	
 	def get_targets(self, maps, width, height):
 		"""
@@ -264,17 +259,17 @@ class scotsActionClient:
 
 class mapData:
 	"""docstring for mapData"""
-	def __init__(self, action_client, target_finder):
+	def __init__(self):
 		self.width = 0
 		self.height = 0
 		self.resolution = 0
 		self.maps = list()
 
-		self.action_client = action_client
-		self.target_finder = target_finder
-
 		self.map_topic_name = "/map"
 		self.map_sub_handle = rospy.Subscriber(self.map_topic_name, OccupancyGrid, self.mapDataCallback)
+
+		rospy.loginfo("Waiting for data on /map topic..")
+		rospy.wait_for_message(self.map_topic_name, OccupancyGrid, timeout=10)
 
 	def mapDataCallback(self, msg):
 		self.width = msg.info.width
@@ -291,44 +286,69 @@ class mapData:
 
 		self.maps = list(map_image.T)
 
-		# all_targets = target_finder.get_targets(self.maps, self.width, self.height)
-		# segregated_targets = target_finder.split_targets(all_targets, self.width, self.height)
-		# max_indices = target_finder.rank_targets(self.maps, segregated_targets, self.width, self.height)
-		# final_target = target_finder.get_best_targets(segregated_targets, max_indices)
-
-		# print(final_target)
-		# targets = []
-
-		# if(len(final_target) > 0):
-		# 	for i in range(len(final_target)):
-		# 		tr = Target()
-		# 		tr.id = i
-		# 		for j in range(len(final_target[i])):
-		# 			tr.points.append(round(final_target[i][j][0] * 0.05, 2))
-		# 		for j in range(len(final_target[i])):
-		# 			tr.points.append(round(final_target[i][j][1] * 0.05, 2))
-		# 		targets.append(tr)
-
-		# 	self.action_client.send_goal(targets)
-		# 	print("Goal sent..")
-		# 	self.action_client._ac.wait_for_result()
-		# else:
-		# 	print("No targets..")
-
 	def getMap(self):
 		return self.maps
 
 	def getMapDimensions(self):
 		return self.width, self.height, self.resolution
-		
+
 
 if __name__ == '__main__':
 
 	rospy.init_node("target_finder")
 
+	if_send_new_goal = True
+
+	def send_new_goal(req):
+		global if_send_new_goal
+		rospy.loginfo("Got new goal request.")
+		if_send_new_goal = True
+		return EmptyResponse()
+
+	new_goal_service_name = "/send_new_goal"
+	new_goal_service = rospy.Service(new_goal_service_name, Empty, send_new_goal)
+
+	mapdata = mapData()
+
 	action_client = scotsActionClient()
-	target_finder = targetFinder(resolution=0.05, target_window=9, clearance=0.2, frontier_clearance=4, robot_dimensions=[0.2, 0.2])
-	
-	mapdata = mapData(action_client, target_finder)
-	
-	rospy.spin()
+	target_finder = targetFinder(resolution=0.05, target_window=9, clearance=0.2, frontier_clearance=2, robot_dimensions=[0.2, 0.2])
+
+	rate = rospy.Rate(1)
+
+	try:
+		while not rospy.is_shutdown():
+			maps = mapdata.getMap()
+			width, height, resolution = mapdata.getMapDimensions()
+
+			targets = []
+
+			all_targets = target_finder.get_targets(maps, width, height)
+			segregated_targets = target_finder.split_targets(all_targets, width, height)
+			max_indices = target_finder.rank_targets(maps, segregated_targets, width, height)
+			safe_targets = target_finder.get_best_targets(segregated_targets, max_indices)
+
+			# print(safe_targets)
+
+			if(len(safe_targets) > 0):
+				for i in range(len(safe_targets)):
+					if not any(safe_targets[i]):
+						continue
+					tr = Target()
+					tr.id = i
+					for j in range(len(safe_targets[i])):
+						tr.points.append(round(safe_targets[i][j][0] * 0.05, 2))
+					for j in range(len(safe_targets[i])):
+						tr.points.append(round(safe_targets[i][j][1] * 0.05, 2))
+					targets.append(tr)
+
+				if(if_send_new_goal):
+					print(targets)
+					action_client.send_goal(targets)
+					# action_client._ac.wait_for_result()
+					if_send_new_goal = False
+			else:
+				print("No targets..")
+
+			rate.sleep()
+	except KeyboardInterrupt:
+		pass

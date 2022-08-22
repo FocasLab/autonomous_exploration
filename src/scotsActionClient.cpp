@@ -36,10 +36,10 @@ int main(int argc, char** argv) {
 
 	// adding targets to the goal
 	std::vector<std::vector<double>> target_data = {
-		{9.80, 10.2, 8.80, 9.20},
-		{7.80, 8.20, 10.8, 11.2},
-		{8.60, 9.00, 5.60, 6.00},
-		{1.10, 1.50, 0.80, 1.20}
+		{0.85, 1.25, 9.00, 9.40},
+		{0.35, 0.75, 0.30, 0.70},
+		{0.35, 0.75, 4.80, 5.20},
+		{0.35, 0.75, 9.00, 9.40}
 	};
 
 	// total number of targets
