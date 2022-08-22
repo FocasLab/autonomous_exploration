@@ -8,8 +8,9 @@ project(exploration_simulations)
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
-  geometry_msgs
-  std_msgs
+  turtlebot3_description
+  turtlebot3_bringup
+  turtlebot3_slam
   turtlebot3_gazebo
 )
 
