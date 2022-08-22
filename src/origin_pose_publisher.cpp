@@ -13,6 +13,7 @@
 #include <geometry_msgs/TransformStamped.h>
 #include <nav_msgs/MapMetaData.h>
 
+// ros service
 #include <std_srvs/Empty.h>
 
 // global variables for storing the pose
@@ -32,9 +33,6 @@ bool updateOriginPose(std_srvs::Empty::Request &req, std_srvs::Empty::Response &
 
 	ROS_INFO_STREAM("Origin Pose Updated..");
 	return true;
-
-	// resp.success = true;
-	// resp.message = "Origin Pose Updated..";
 }
 
 int main(int argc, char** argv) {
@@ -63,6 +61,13 @@ int main(int argc, char** argv) {
 
 	// loop rate for while loop (default ferq 1 hz)
 	ros::Rate rate(broadcast_frequency);
+
+	// update origin once when this node is started
+	ros::Duration(2).sleep(); 			// wait for some time to get data in global variables
+	ros::spinOnce();
+
+	position = updated_position;
+	orientation = updated_orientation;
 
 	// Transform broadcaster
 	static tf2_ros::StaticTransformBroadcaster br;
