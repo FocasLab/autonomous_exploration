@@ -7,7 +7,6 @@ project(autonomous_exploration)
 find_package(catkin REQUIRED COMPONENTS
   std_srvs
   geometry_msgs
-  phasespace_msgs
   actionlib_msgs
   visualization_msgs
   roscpp
