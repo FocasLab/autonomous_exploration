@@ -66,30 +66,34 @@ class scotsActionServer
 
 		// publisher and subscriber handlers
 		std::string pose_topic_name_ = "/robot_pose";
-		ros::Subscriber robot_pose = nh_.subscribe(pose_topic_name_, 10, &scotsActionServer::robotPoseCallback_2, this);
+		ros::Subscriber robot_pose;
 
 		std::string vel_topic_name_ = "/cmd_vel";
-		ros::Publisher robot_vel = nh_.advertise<geometry_msgs::Twist>(vel_topic_name_, 10);
+		ros::Publisher robot_vel;
 
 		// map subscriber
 		std::string map_topic_name = "/map";
-		ros::Subscriber map_sub = nh_.subscribe(map_topic_name, 10, &scotsActionServer::mapCallback, this);
+		ros::Subscriber map_sub;
 
 		// origin update client
-		std::string origin_update_topic_name = "/update_origin";
-		ros::ServiceClient origin_update_client = nh_.serviceClient<std_srvs::Empty>(origin_update_topic_name);
+		std::string origin_update_service_name = "/update_origin";
+		ros::ServiceClient origin_update_client;
+
+		// 
+		std::string send_new_goal_service_name = "/send_new_goal";
+		ros::ServiceClient send_new_goal_client;
 
 		// obstacle visualization
 		std::string obs_topic_name = "/scots_visualization";
-		ros::Publisher markers_pub = nh_.advertise<visualization_msgs::Marker>(obs_topic_name, 10);
+		ros::Publisher markers_pub;
 
 		// robot path visualization
 		std::string path_topic_name = "/path_visualization";
-		ros::Publisher path_pub = nh_.advertise<nav_msgs::Path>(path_topic_name, 10);
+		ros::Publisher path_pub;
 
 		// trajectory visualization
 		std::string trajectory_topic_name = "/trajectory_visualization";
-		ros::Publisher trajectory_pub = nh_.advertise<nav_msgs::Path>(trajectory_topic_name, 10);
+		ros::Publisher trajectory_pub;
 
 		// global variables
 		static const int state_dim = 3;
@@ -108,10 +112,30 @@ class scotsActionServer
 		// Bind the callback to the action server. False is for thread spinning
 		as_(nh_, name, boost::bind(&scotsActionServer::processGoal, this, _1), false),
 		action_name_(name) {
+			// subscribers
+			robot_pose = nh_.subscribe(pose_topic_name_, 10, &scotsActionServer::robotPoseCallback_2, this);
+			map_sub = nh_.subscribe(map_topic_name, 10, &scotsActionServer::mapCallback, this);
+			
+			// publishers
+			robot_vel = nh_.advertise<geometry_msgs::Twist>(vel_topic_name_, 10);
+			markers_pub = nh_.advertise<visualization_msgs::Marker>(obs_topic_name, 10);
+			path_pub = nh_.advertise<nav_msgs::Path>(path_topic_name, 10);
+			trajectory_pub = nh_.advertise<nav_msgs::Path>(trajectory_topic_name, 10);
+
+			// actions
 			as_.start();
 			std::cout << "Scots Action Server is started, now you can send the goals." << std::endl;
+			
+			// services
+			origin_update_client = nh_.serviceClient<std_srvs::Empty>(origin_update_service_name);
+			send_new_goal_client = nh_.serviceClient<std_srvs::Empty>(send_new_goal_service_name);
 
-			ros::service::waitForService(origin_update_topic_name, ros::Duration(5));
+			std::cout << "Waiting for services.." << std::endl;
+			ros::service::waitForService(origin_update_service_name, ros::Duration(10));
+			ros::service::waitForService(send_new_goal_service_name, ros::Duration(10));
+			std::cout << "Done." << std::endl;
+
+			bool send_new_goal_success = send_new_goal_client.call(req, resp);
 		}
 
 		~scotsActionServer(void)
@@ -139,6 +163,7 @@ class scotsActionServer
 		}
 
 		void mapCallback(const nav_msgs::OccupancyGrid &msg) {
+			map_vector.clear();
 			resolution = msg.info.resolution;
 			width = msg.info.width;
 			height = msg.info.height;
@@ -235,6 +260,45 @@ class scotsActionServer
 			}
 		}
 
+		void visualizeTargets(const autonomous_exploration::Target &tr) {
+			// visaulization parameters
+			visualization_msgs::Marker lines;
+
+			lines.header.frame_id = "origin";
+			lines.header.stamp = ros::Time::now();
+			
+			lines.ns = "target_window";
+			lines.id = 1;
+			lines.type = visualization_msgs::Marker::LINE_STRIP;
+			lines.action = visualization_msgs::Marker::ADD;
+
+			lines.pose.orientation.w = 1;
+
+			lines.scale.x = 0.02;
+
+			lines.color.g = 1.0f;
+			lines.color.a = 1.0;
+
+			lines.lifetime = ros::Duration();
+
+			double box_length = tr.points[1] - tr.points[0];
+			double box_width = tr.points[3] - tr.points[2];
+
+			std::vector<double> diff_x = {0, box_width, box_width, 0, 0};
+			std::vector<double> diff_y = {0, 0, box_length, box_length, 0};
+
+			for(int i = 0; i < diff_x.size(); i++) {
+				geometry_msgs::Point pt;
+				
+				pt.x = tr.points[0] + diff_x[i];
+				pt.y = tr.points[2] + diff_y[i];
+
+				lines.points.push_back(pt);
+			}
+
+			markers_pub.publish(lines);
+		}
+
 		scots::StaticController getController(const scots::UniformGrid &ss, const scots::UniformGrid &is, const scots::TransitionFunction &tf, 
 			const state_type &s_eta, const autonomous_exploration::Target &tr) {
 			
@@ -243,8 +307,8 @@ class scotsActionServer
 				state_type x;
 				ss.itox(idx, x);
 				// function returns 1 if cell associated with x is in target set 
-				if (tr.points[0] <= (x[0] - s_eta[0] / 2.0) && (x[0] + s_eta[0] / 2.0) <= tr.points[1] && 
-					tr.points[2] <= (x[1] - s_eta[1] / 2.0) && (x[1] + s_eta[1] / 2.0) <= tr.points[3])
+				if (tr.points[0] <= x[0] && x[0] <= tr.points[1] && 
+					tr.points[2] <= x[1] && x[1] <= tr.points[3])
 				  return true;
 				return false;
 			};
@@ -324,6 +388,16 @@ class scotsActionServer
 					feedback_.curr_pose = curr_pose;
 
 					std::vector<input_type> control_inputs = controller.peek_control<state_type, input_type>(robot_state);
+
+					// if(control_inputs.size() < 1) {
+					// 	vel_msg_turtle.linear.x = 0.0;
+					// 	vel_msg_turtle.angular.z = 0.0;
+
+					// 	robot_vel.publish(vel_msg_turtle);
+					// 	success = false;
+					// 	std::cout << "Robot is not in the Winning domain or the Winning domain is too small. Try with different targets." << std::endl;
+					// 	break;
+					// }
 
 					vel_msg_turtle.linear.x = control_inputs[0][0];
 					vel_msg_turtle.angular.z = control_inputs[0][1];
@@ -409,6 +483,16 @@ class scotsActionServer
 				// 									  			  << robot_state[1] << ", " 
 				// 									  			  << robot_state[2] << std::endl;
 
+				if(target(robot_state)) {
+					// std::cout << "Reached: " << robot_state[0] << ", " 
+					// 						 << robot_state[1] << ", " 
+					// 						 << robot_state[2] << std::endl;
+
+					success = true;
+					trajectory_pub.publish(trajectory);
+					break;
+				}
+
 				std::vector<input_type> control_inputs = controller.peek_control<state_type, input_type>(robot_state);
 
 				vehicle_post(robot_state, control_inputs[0]);
@@ -419,15 +503,6 @@ class scotsActionServer
 
 				trajectory.poses.push_back(trajectory_poses);
 
-				if(target(robot_state)) {
-					// std::cout << "Reached: " << robot_state[0] << ", " 
-					// 						 << robot_state[1] << ", " 
-					// 						 << robot_state[2] << std::endl;
-
-					success = true;
-					trajectory_pub.publish(trajectory);
-					break;
-				}
 			}
 			return success;
 		}
@@ -450,8 +525,8 @@ class scotsActionServer
 			}
 
 			std::cout << "\n\nTarget Locked, starting to proceed." << std::endl;
-			success = simulatePath(success, controller, goal->targets[3]);
-			success = reachTarget(success, controller, goal->targets[3]);
+			success = simulatePath(success, controller, goal->targets[0]);
+			success = reachTarget(success, controller, goal->targets[0]);
 
 			if(success) {
 				result_.target_id = 0;
@@ -482,9 +557,12 @@ class scotsActionServer
 				r[0] = r[0] + r[2] * std::abs(u[0]) * tau + w[0];
 				r[1] = r[1] + r[2] * std::abs(u[0]) * tau + w[1];
 			};
+
+			double lb = width * resolution;
+			double ub = height * resolution;
 			
 			state_type s_lb={{0, 0, -3.5}};
-			state_type s_ub={{3.25, 9.8, 3.5}};
+			state_type s_ub={{std::ceil(lb * 100.0) / 100.0, std::ceil(ub * 100.0) / 100.0, 3.5}};
 			state_type s_eta={{.1, .1, .2}};
 
 			scots::UniformGrid ss(state_dim, s_lb, s_ub, s_eta);
@@ -505,11 +583,14 @@ class scotsActionServer
 			bool origin_update_success = origin_update_client.call(req, resp);
 
 			// result parameter
-			bool success = false;
+			bool success = true;
 
 			std::vector<std::vector<int>> maps = getMapMatrix(map_vector, width, height);
 
+			int target_no = 0;
+
 			visualizeObstacles(ss, maps);
+			visualizeTargets(goal->targets[target_no]);
 
 			auto avoid = [&maps, &ss, width=width, height=height, resolution=resolution](const abs_type& idx) {
 				state_type x;
@@ -557,19 +638,25 @@ class scotsActionServer
 			// std::vector<scots::StaticController> controllers;
 
 			// for(int i = 0; i < num_targets; i++) {
-			// 	controllers.push_back(getController(ss, s_eta, goal->targets[i]));
+			// 	controllers.push_back(getController(ss, is, tf, s_eta, goal->targets[i]));
+
+			// 	// std::cout << "\n\nTarget Locked, starting to proceed." << std::endl;
+			// 	// success = simulatePath(success, controllers[i], goal->targets[i]);
+			// 	// success = reachTarget(success, controllers[i], goal->targets[i]);
 			// }
 
-			scots::StaticController controller = getController(ss, is, tf, s_eta, goal->targets[3]);
+			scots::StaticController controller = getController(ss, is, tf, s_eta, goal->targets[target_no]);
 
 			std::cout << "\n\nTarget Locked, starting to proceed." << std::endl;
-			success = simulatePath(success, controller, goal->targets[3]);
-			success = reachTarget(success, controller, goal->targets[3]);
+			success = simulatePath(success, controller, goal->targets[target_no]);
+			success = reachTarget(success, controller, goal->targets[target_no]);
 
 			if(success) {
 				result_.target_id = 0;
 				result_.synthesis_time = 0.0;
 				result_.completion_time = 0.0;
+
+				bool send_new_goal_success = send_new_goal_client.call(req, resp);
 
 				std::cout << "Succeeded for: " << action_name_.c_str() << std::endl;
 				// set the action state to succeeded
@@ -582,8 +669,13 @@ int main(int argc, char** argv) {
 	// ros node initialize
 	ros::init(argc, argv, "scotsActionServer");
 
+	// ros::AsyncSpinner spinner(0);
+ //    spinner.start();
+
 	// Create an action server object and spin ROS
 	scotsActionServer scotsAS("/scots");
+
+	// ros::waitForShutdown();
 	ros::spin();
 
 	return 0;
