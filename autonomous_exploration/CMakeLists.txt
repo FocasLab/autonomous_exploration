@@ -58,7 +58,7 @@ generate_messages(
 catkin_package(
  INCLUDE_DIRS include
 #  LIBRARIES autonomous_exploration
- CATKIN_DEPENDS phasespace_msgs actionlib_msgs roscpp rospy
+ CATKIN_DEPENDS actionlib_msgs roscpp rospy
 #  DEPENDS system_lib
 )
 

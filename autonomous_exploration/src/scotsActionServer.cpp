@@ -11,7 +11,6 @@
 #include <autonomous_exploration/Target.h>
 
 // ros robot includes
-#include <phasespace_msgs/Markers.h>
 #include <geometry_msgs/Pose2D.h>
 #include <geometry_msgs/Twist.h>
 #include <geometry_msgs/Point.h>
@@ -146,19 +145,19 @@ class scotsActionServer
 		{
 		}
 
-		void robotPoseCallback_1(const phasespace_msgs::Markers &msg) {
-			phasespace_msgs::Marker marker_dyn = msg.markers[0];
-			phasespace_msgs::Marker marker_ori = msg.markers[1];
+		// void robotPoseCallback_1(const phasespace_msgs::Markers &msg) {
+		// 	phasespace_msgs::Marker marker_dyn = msg.markers[0];
+		// 	phasespace_msgs::Marker marker_ori = msg.markers[1];
 
-			curr_pose.x = marker_dyn.x;
-			curr_pose.y = marker_dyn.y;
+		// 	curr_pose.x = marker_dyn.x;
+		// 	curr_pose.y = marker_dyn.y;
 
-			double dy = marker_dyn.y - marker_ori.y;
-			double dx = marker_dyn.x - marker_ori.x;
+		// 	double dy = marker_dyn.y - marker_ori.y;
+		// 	double dx = marker_dyn.x - marker_ori.x;
 
-			double angle = std::atan2(dy, dx);
-			curr_pose.theta = angle;
-		}
+		// 	double angle = std::atan2(dy, dx);
+		// 	curr_pose.theta = angle;
+		// }
 
 		void robotPoseCallback_2(const geometry_msgs::Pose2D &msg) {
 			curr_pose.x = msg.x;
