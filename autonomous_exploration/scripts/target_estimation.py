@@ -11,7 +11,6 @@ from std_srvs.srv import Empty, EmptyResponse
 
 # other
 import numpy as np
-import threading
 from typing import final
 
 
@@ -324,7 +323,7 @@ def get_safe_targets(target_finder, clearance, frontier_clearance, maps, width, 
 
 if __name__ == '__main__':
 
-	rospy.init_node("target_finder")
+	rospy.init_node("target_estimation")
 
 	action_client = scotsActionClient()
 	mapdata = mapData(action_client)
