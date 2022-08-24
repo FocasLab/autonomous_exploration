@@ -330,10 +330,11 @@ if __name__ == '__main__':
 
 	clearance = 0.3
 	frontier_clearance = 6
+	target_window = 9
 
 	_w, _h, resolution = mapdata.get_map_dimensions()
 	
-	target_finder = targetFinder(resolution=resolution, target_window=9, robot_dimensions=[0.2, 0.2])
+	target_finder = targetFinder(resolution=resolution, target_window=target_window, robot_dimensions=[0.2, 0.2])
 
 	rate = rospy.Rate(1)
 
@@ -358,11 +359,13 @@ if __name__ == '__main__':
 					
 					tr = Target()
 					tr.id = i
+					tr.window = round((target_window -1 ) * resolution, 2)
+					tr.clearance = round((frontier_clearance + target_window - 1) * resolution, 2)
 					
 					for j in range(len(safe_targets[i])):
-						tr.points.append(round(safe_targets[i][j][0] * 0.05, 2))
+						tr.points.append(round(safe_targets[i][j][0] * resolution, 2))
 					for j in range(len(safe_targets[i])):
-						tr.points.append(round(safe_targets[i][j][1] * 0.05, 2))
+						tr.points.append(round(safe_targets[i][j][1] * resolution, 2))
 					
 					targets.append(tr)
 

@@ -265,41 +265,44 @@ class scotsActionServer
 
 		void visualizeTargets(const autonomous_exploration::Target &tr) {
 			// visaulization parameters
-			visualization_msgs::Marker lines;
+			visualization_msgs::Marker frontier, target;
 
-			lines.header.frame_id = "origin";
-			lines.header.stamp = ros::Time::now();
+			frontier.header.frame_id = target.header.frame_id = "origin";
+			frontier.header.stamp = target.header.stamp = ros::Time::now();
 			
-			lines.ns = "target_window";
-			lines.id = 1;
-			lines.type = visualization_msgs::Marker::LINE_STRIP;
-			lines.action = visualization_msgs::Marker::ADD;
+			frontier.ns = "frontier_window";
+			target.ns = "target_window";
+			
+			frontier.id = target.id = 0;
+			frontier.type = target.type = visualization_msgs::Marker::POINTS;
+			frontier.action = target.action = visualization_msgs::Marker::ADD;
 
-			lines.pose.orientation.w = 1;
+			frontier.pose.orientation.w = target.pose.orientation.w = 1;
 
-			lines.scale.x = 0.02;
+			frontier.scale.x = frontier.scale.y = 1 * tr.clearance;
+			target.scale.x = target.scale.y = 1 * tr.window;
 
-			lines.color.g = 1.0f;
-			lines.color.a = 1.0;
+			frontier.color.g = 1.0f;
+			target.color.r = 1.0f;
 
-			lines.lifetime = ros::Duration();
+			frontier.color.a = 0.5;
+			target.color.a = 1.0;
 
-			double box_length = tr.points[1] - tr.points[0];
-			double box_width = tr.points[3] - tr.points[2];
+			frontier.lifetime = target.lifetime = ros::Duration();
 
-			std::vector<double> diff_x = {0, box_width, box_width, 0, 0};
-			std::vector<double> diff_y = {0, 0, box_length, box_length, 0};
+			double diff = tr.window;
+			std::vector<visualization_msgs::Marker> marker_obj = {frontier, target};
 
-			for(int i = 0; i < diff_x.size(); i++) {
+			for(int i = 0; i < 2; i++) {
 				geometry_msgs::Point pt;
 				
-				pt.x = tr.points[0] + diff_x[i];
-				pt.y = tr.points[2] + diff_y[i];
+				pt.x = tr.points[0] + diff / 2.0;
+				pt.y = tr.points[2] + diff / 2.0;
 
-				lines.points.push_back(pt);
+				marker_obj[i].points.push_back(pt);
+				markers_pub.publish(marker_obj[i]);
 			}
 
-			markers_pub.publish(lines);
 		}
 
 		scots::StaticController getController(const scots::UniformGrid &ss, const scots::UniformGrid &is, const scots::TransitionFunction &tf, 
@@ -673,7 +676,7 @@ class scotsActionServer
 
 			scots::StaticController controller = getController(ss, is, tf, s_eta, goal->targets[target_no]);
 
-			std::cout << "\n\nTarget Locked, starting to proceed." << std::endl;
+			std::cout << "\n\nRobot started, Reaching to the target." << std::endl;
 			success = simulatePath(success, controller, goal->targets[target_no]);
 			success = reachTarget(success, controller, goal->targets[target_no]);
 
