@@ -469,6 +469,8 @@ class scotsActionServer
 
 		bool simulatePath(const scots::StaticController &controller, const autonomous_exploration::Target &tr) {
 			//defining dynamics of robot
+			ROS_INFO_STREAM("Publishing the trajectory..");
+
 			auto vehicle_post = [](state_type &x, const input_type &u) {
 				auto rhs = [](state_type& xx, const state_type &x, const input_type &u) {
 					xx[0] = u[0] * std::cos(x[2]); 
@@ -673,13 +675,13 @@ class scotsActionServer
 				visualizeTargets(goal->targets[i]);
 				scots::WinningDomain win_domain = getDomain(ss, tf, goal->targets[i]);
 
-				if(0.2 * total_domain < win_domain.get_size()) {
+				if(0.03 * total_domain < win_domain.get_size()) {
 					domains.push_back(win_domain);
 					target_no = i;
 					break;
 				}
 				else {
-					ROS_INFO_STREAM("Winning domain is less than 30%, going for the next target.");
+					ROS_INFO_STREAM("Winning domain is less than 3% of total domain, going for the next target.");
 				}
 			}
 
@@ -700,7 +702,7 @@ class scotsActionServer
 				ROS_INFO_STREAM("No reachable targets, Exploration is Done..");
 			}
 
-			ros::Duration completion_time = ros::Time::now() - t_begin;
+			ros::Duration completion_time = ros::Time::now() - t_begin - ros::Duration(10);
 
 			if(success) {
 				result_.target_id = target_no;
