@@ -16,18 +16,21 @@ from typing import final
 
 class targetFinder:
 	"""docstring for targetFinder"""
-	def __init__(self, resolution=0.05, target_window=9, robot_dimensions=[0.2, 0.2]):
+	def __init__(self, resolution=0.05, target_window=9, safety_net=2, robot_dimensions=[0.2, 0.2]):
 
 		assert isinstance(target_window, (int)), "Target window must be integer, Recieved type %r" % type(target_window).__name__
 
 		assert round(robot_dimensions[0] * robot_dimensions[1], 2) <= round((resolution * target_window) ** 2, 2), "Robot size(area) must not be bigger than target window(area), given robot size is %r m*m, while target window is %r m*m" %(robot_dimensions[0] * robot_dimensions[1], (resolution * target_window) ** 2)
 		assert target_window >= 9, "Target window must be greater than or equal to 9 (0.4*0.4 m*m), Recieved %r" % target_window
 		assert target_window % 2 != 0, "Target window must be an odd number, Recieved %r" % target_window
+		assert safety_net >= 0, "Safety net must be positive, Recieved %r" % safety_net
+		assert safety_net % 2 == 0, "Safety net must be an even number, Recieved %r" % safety_net
 
 		self.resolution = resolution					# Size of each grid in meters
 		self.robot_max_length = robot_dimensions[0]		# Manimum length of the robot in meters
 		self.robot_max_width = robot_dimensions[1]		# Miximum width of the robot in meters
 		self.target_window = target_window				# size of the target window in pixel (to convert meters => target_window * resolution), note that it is a square and must always be an odd number
+		self.safety_net = safety_net
 
 	def get_targets(self, clearance, frontier_clearance, maps, width, height):
 		"""
@@ -197,7 +200,7 @@ class targetFinder:
 		return rank_index
 
 	
-	def get_best_targets(self, segregated_targets, max_indices, safety_net, maps, width, height):
+	def get_best_targets(self, segregated_targets, max_indices, maps, width, height):
 		"""
 		This function returns the middle portion of the frontier in the ranked region. The first element of best_target is best region
 
@@ -210,17 +213,19 @@ class targetFinder:
 		"""
 
 		best_targets = []
+		maps = maps[0]
 
+		# old logic
 		# for i in range(len(max_indices)):
 		# 	best_targets.append(segregated_targets[max_indices[i]][len(segregated_targets[max_indices[i]]) // 2])
-		maps = maps[0]
+
+		# new logic
 		for i in range(len(max_indices)):
 			for j in range(len(segregated_targets[max_indices[i]])-1):
-				[check_neighbor, x_s, y_s, x_e, y_e] = self.neighbors(self.target_window+safety_net, segregated_targets[max_indices[i]][j][0][0]+self.target_window//2, segregated_targets[max_indices[i]][j][0][1]+self.target_window//2, maps, width, height)
+				[check_neighbor, x_s, y_s, x_e, y_e] = self.neighbors(self.target_window + self.safety_net, segregated_targets[max_indices[i]][j][0][0] + self.target_window // 2, segregated_targets[max_indices[i]][j][0][1] + self.target_window // 2, maps, width, height)
 				if not any(-1 in n for n in check_neighbor):
-					best_targets.append([[x_s+safety_net//2, y_s+safety_net//2], [x_e-safety_net//2, y_e-safety_net//2]])
+					best_targets.append([[x_s + self.safety_net // 2, y_s + self.safety_net // 2], [x_e - self.safety_net // 2, y_e - self.safety_net // 2]])
 					break
-
 		
 		return best_targets
 
@@ -326,11 +331,11 @@ class mapData:
 		return self.width, self.height, self.resolution
 
 
-def get_safe_targets(target_finder, clearance, frontier_clearance, safety_net, maps, width, height):
+def get_safe_targets(target_finder, clearance, frontier_clearance, maps, width, height):
 	all_targets = target_finder.get_targets(clearance, frontier_clearance, maps, width, height)
 	segregated_targets = target_finder.split_targets(all_targets, width, height)
 	max_indices = target_finder.rank_targets(maps, segregated_targets, width, height)
-	safe_targets = target_finder.get_best_targets(segregated_targets, max_indices, safety_net, maps, width, height)
+	safe_targets = target_finder.get_best_targets(segregated_targets, max_indices, maps, width, height)
 
 	return safe_targets
 
@@ -349,7 +354,7 @@ if __name__ == '__main__':
 
 	_w, _h, resolution = mapdata.get_map_dimensions()
 	
-	target_finder = targetFinder(resolution=resolution, target_window=target_window, robot_dimensions=[0.2, 0.2])
+	target_finder = targetFinder(resolution=resolution, target_window=target_window, safety_net=safety_net, robot_dimensions=[0.2, 0.2])
 
 	rate = rospy.Rate(1)
 
@@ -366,7 +371,7 @@ if __name__ == '__main__':
 				break
 
 			targets = []
-			safe_targets = get_safe_targets(target_finder, clearance, frontier_clearance, safety_net, maps, width, height)
+			safe_targets = get_safe_targets(target_finder, clearance, frontier_clearance, maps, width, height)
 
 			# print("Safe targets, %r" % safe_targets)
 
@@ -377,7 +382,7 @@ if __name__ == '__main__':
 					
 					tr = Target()
 					tr.id = i
-					tr.window = round((target_window -1 ) * resolution, 2)
+					tr.window = round((target_window - 1) * resolution, 2)
 					tr.clearance = round((frontier_clearance + target_window - 1) * resolution, 2)
 					
 					for j in range(len(safe_targets[i])):
