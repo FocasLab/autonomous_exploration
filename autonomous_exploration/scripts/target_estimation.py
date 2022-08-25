@@ -28,7 +28,7 @@ class targetFinder:
 		self.robot_max_length = robot_dimensions[0]		# Manimum length of the robot in meters
 		self.robot_max_width = robot_dimensions[1]		# Miximum width of the robot in meters
 		self.target_window = target_window				# size of the target window in pixel (to convert meters => target_window * resolution), note that it is a square and must always be an odd number
-	
+
 	def get_targets(self, clearance, frontier_clearance, maps, width, height):
 		"""
 		This function finds out all potential targets in the map
@@ -81,6 +81,8 @@ class targetFinder:
 		"""
 
 		radius = int(radius // 2)
+		row_number = int(row_number)
+		column_number = int(column_number)
 
 		# If the selected has neighbors all around it within the map
 		if row_number < width - radius and column_number < height - radius and row_number > radius and column_number > radius: 
@@ -195,7 +197,7 @@ class targetFinder:
 		return rank_index
 
 	
-	def get_best_targets(self, segregated_targets, max_indices):
+	def get_best_targets(self, segregated_targets, max_indices, safety_net, maps, width, height):
 		"""
 		This function returns the middle portion of the frontier in the ranked region. The first element of best_target is best region
 
@@ -209,8 +211,16 @@ class targetFinder:
 
 		best_targets = []
 
+		# for i in range(len(max_indices)):
+		# 	best_targets.append(segregated_targets[max_indices[i]][len(segregated_targets[max_indices[i]]) // 2])
+		maps = maps[0]
 		for i in range(len(max_indices)):
-			best_targets.append(segregated_targets[max_indices[i]][len(segregated_targets[max_indices[i]]) // 2])
+			for j in range(len(segregated_targets[max_indices[i]])-1):
+				[check_neighbor, x_s, y_s, x_e, y_e] = self.neighbors(self.target_window+safety_net, segregated_targets[max_indices[i]][j][0][0]+self.target_window//2, segregated_targets[max_indices[i]][j][0][1]+self.target_window//2, maps, width, height)
+				if not any(-1 in n for n in check_neighbor):
+					best_targets.append([[x_s+safety_net//2, y_s+safety_net//2], [x_e-safety_net//2, y_e-safety_net//2]])
+					break
+
 		
 		return best_targets
 
@@ -316,11 +326,11 @@ class mapData:
 		return self.width, self.height, self.resolution
 
 
-def get_safe_targets(target_finder, clearance, frontier_clearance, maps, width, height):
+def get_safe_targets(target_finder, clearance, frontier_clearance, safety_net, maps, width, height):
 	all_targets = target_finder.get_targets(clearance, frontier_clearance, maps, width, height)
 	segregated_targets = target_finder.split_targets(all_targets, width, height)
 	max_indices = target_finder.rank_targets(maps, segregated_targets, width, height)
-	safe_targets = target_finder.get_best_targets(segregated_targets, max_indices)
+	safe_targets = target_finder.get_best_targets(segregated_targets, max_indices, safety_net, maps, width, height)
 
 	return safe_targets
 
@@ -335,6 +345,7 @@ if __name__ == '__main__':
 	clearance = 0.3
 	frontier_clearance = 6
 	target_window = 9
+	safety_net = 2                    # The distance to be taken from the inflated frontier edge, this too must be even
 
 	_w, _h, resolution = mapdata.get_map_dimensions()
 	
@@ -355,7 +366,7 @@ if __name__ == '__main__':
 				break
 
 			targets = []
-			safe_targets = get_safe_targets(target_finder, clearance, frontier_clearance, maps, width, height)
+			safe_targets = get_safe_targets(target_finder, clearance, frontier_clearance, safety_net, maps, width, height)
 
 			# print("Safe targets, %r" % safe_targets)
 
