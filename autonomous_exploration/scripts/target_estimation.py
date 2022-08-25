@@ -244,6 +244,10 @@ class scotsActionClient:
 		
 		rospy.loginfo("Goal has been sent.")
 
+
+	def get_time(self):
+		return self.total_systhessis_time, self.total_completion_time
+
 	def done_callback(self, status, result):
 		self.total_systhessis_time += result.synthesis_time
 		self.total_completion_time += result.completion_time
@@ -345,6 +349,9 @@ if __name__ == '__main__':
 
 			if(clearance < 0.1 or frontier_clearance < 2):
 				rospy.loginfo("Exploration is done.")
+				total_systhessis_time, total_completion_time = action_client.get_time()
+				rospy.loginfo("Total time spent on Synthesis. %r" % total_systhessis_time)
+				rospy.loginfo("Total time spent on Completion. %r" % total_completion_time)
 				break
 
 			targets = []
