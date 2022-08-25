@@ -16,21 +16,18 @@ from typing import final
 
 class targetFinder:
 	"""docstring for targetFinder"""
-	def __init__(self, resolution=0.05, target_window=9, safety_net=2, robot_dimensions=[0.2, 0.2]):
+	def __init__(self, resolution=0.05, target_window=8, robot_dimensions=[0.2, 0.2]):
 
-		assert isinstance(target_window, (int)), "Target window must be integer, Recieved type %r" % type(target_window).__name__
+		# assert isinstance(target_window, (int)), "Target window must be integer, Recieved type %r" % type(target_window).__name__
 
 		assert round(robot_dimensions[0] * robot_dimensions[1], 2) <= round((resolution * target_window) ** 2, 2), "Robot size(area) must not be bigger than target window(area), given robot size is %r m*m, while target window is %r m*m" %(robot_dimensions[0] * robot_dimensions[1], (resolution * target_window) ** 2)
-		assert target_window >= 9, "Target window must be greater than or equal to 9 (0.4*0.4 m*m), Recieved %r" % target_window
-		assert target_window % 2 != 0, "Target window must be an odd number, Recieved %r" % target_window
-		assert safety_net >= 0, "Safety net must be positive, Recieved %r" % safety_net
-		assert safety_net % 2 == 0, "Safety net must be an even number, Recieved %r" % safety_net
+		assert target_window >= 8, "Target window must be greater than or equal to 9 (0.4*0.4 m*m), Recieved %r" % target_window
+		# assert target_window % 2 != 0, "Target window must be an odd number, Recieved %r" % target_window
 
 		self.resolution = resolution					# Size of each grid in meters
 		self.robot_max_length = robot_dimensions[0]		# Manimum length of the robot in meters
 		self.robot_max_width = robot_dimensions[1]		# Miximum width of the robot in meters
 		self.target_window = target_window				# size of the target window in pixel (to convert meters => target_window * resolution), note that it is a square and must always be an odd number
-		self.safety_net = safety_net
 
 	def get_targets(self, clearance, frontier_clearance, maps, width, height):
 		"""
@@ -47,7 +44,7 @@ class targetFinder:
 
 		assert isinstance(frontier_clearance, (int)), "Frontier clearance must be integer, Recieved type %r" % type(frontier_clearance).__name__
 		assert frontier_clearance >= 2, "Frontier Clearance must be greater than or equal to 2, Recieved frontier clearance is %r" % frontier_clearance
-		assert clearance > self.resolution, "Clearance must not be less than resolution, Recieved clearance is %r, and resolution is %r" % (clearance, self.resolution)
+		# assert clearance > self.resolution, "Clearance must not be less than resolution, Recieved clearance is %r, and resolution is %r" % (clearance, self.resolution)
 
 		maps = maps[0]
 		potential_targets = []
@@ -59,10 +56,10 @@ class targetFinder:
 		for i in range(width):
 			for j in range(height):
 				if maps[i][j] == 0:
-					[neighbor_map, x_s, y_s, x_e, y_e] = self.neighbors(frontier_window - 1, i, j, maps, width, height)
+					[neighbor_map, x_s, y_s, x_e, y_e] = self.neighbors(frontier_window, i, j, maps, width, height)
 					if not any(1 in n for n in neighbor_map):  # Check if there are any obstacles nearby
 						if any(-1 in n for n in neighbor_map):  # Check if there are any frontiers nearby
-							[target_map, x_start, y_start, x_end, y_end] = self.neighbors(self.target_window + clearance - 1, i, j, maps, width ,height)
+							[target_map, x_start, y_start, x_end, y_end] = self.neighbors(self.target_window + clearance, i, j, maps, width ,height)
 							if not any(-1 in n for n in target_map):  # Make sure there are no frontiers in the target
 								potential_targets.append([[x_start + cut_off, y_start + cut_off], [x_end - cut_off, y_end - cut_off]])
 
@@ -200,7 +197,7 @@ class targetFinder:
 		return rank_index
 
 	
-	def get_best_targets(self, segregated_targets, max_indices, maps, width, height):
+	def get_best_targets(self, segregated_targets, max_indices, safety_net, maps, width, height):
 		"""
 		This function returns the middle portion of the frontier in the ranked region. The first element of best_target is best region
 
@@ -213,19 +210,17 @@ class targetFinder:
 		"""
 
 		best_targets = []
-		maps = maps[0]
 
-		# old logic
 		# for i in range(len(max_indices)):
 		# 	best_targets.append(segregated_targets[max_indices[i]][len(segregated_targets[max_indices[i]]) // 2])
-
-		# new logic
+		maps = maps[0]
 		for i in range(len(max_indices)):
 			for j in range(len(segregated_targets[max_indices[i]])-1):
-				[check_neighbor, x_s, y_s, x_e, y_e] = self.neighbors(self.target_window + self.safety_net, segregated_targets[max_indices[i]][j][0][0] + self.target_window // 2, segregated_targets[max_indices[i]][j][0][1] + self.target_window // 2, maps, width, height)
+				[check_neighbor, x_s, y_s, x_e, y_e] = self.neighbors(self.target_window+safety_net, segregated_targets[max_indices[i]][j][0][0]+self.target_window//2, segregated_targets[max_indices[i]][j][0][1]+self.target_window//2, maps, width, height)
 				if not any(-1 in n for n in check_neighbor):
-					best_targets.append([[x_s + self.safety_net // 2, y_s + self.safety_net // 2], [x_e - self.safety_net // 2, y_e - self.safety_net // 2]])
+					best_targets.append([[x_s+safety_net//2, y_s+safety_net//2], [x_e-safety_net//2, y_e-safety_net//2]])
 					break
+
 		
 		return best_targets
 
@@ -331,11 +326,11 @@ class mapData:
 		return self.width, self.height, self.resolution
 
 
-def get_safe_targets(target_finder, clearance, frontier_clearance, maps, width, height):
+def get_safe_targets(target_finder, clearance, frontier_clearance, safety_net, maps, width, height):
 	all_targets = target_finder.get_targets(clearance, frontier_clearance, maps, width, height)
 	segregated_targets = target_finder.split_targets(all_targets, width, height)
 	max_indices = target_finder.rank_targets(maps, segregated_targets, width, height)
-	safe_targets = target_finder.get_best_targets(segregated_targets, max_indices, maps, width, height)
+	safe_targets = target_finder.get_best_targets(segregated_targets, max_indices, safety_net, maps, width, height)
 
 	return safe_targets
 
@@ -347,14 +342,14 @@ if __name__ == '__main__':
 	action_client = scotsActionClient()
 	mapdata = mapData(action_client)
 
-	clearance = 0.3
-	frontier_clearance = 6
-	target_window = 9
+	clearance = 0.1                   # clearance / grid size must be lower than frontier_clearance
+	frontier_clearance = 4
+	target_window = 8
 	safety_net = 2                    # The distance to be taken from the inflated frontier edge, this too must be even
 
 	_w, _h, resolution = mapdata.get_map_dimensions()
 	
-	target_finder = targetFinder(resolution=resolution, target_window=target_window, safety_net=safety_net, robot_dimensions=[0.2, 0.2])
+	target_finder = targetFinder(resolution=resolution, target_window=target_window, robot_dimensions=[0.2, 0.2])
 
 	rate = rospy.Rate(1)
 
@@ -363,7 +358,7 @@ if __name__ == '__main__':
 			maps = mapdata.get_map()
 			width, height, resolution = mapdata.get_map_dimensions()
 
-			if(clearance < 0.1 or frontier_clearance < 2):
+			if(clearance < 0 or frontier_clearance < 2):
 				rospy.loginfo("Exploration is done.")
 				total_systhessis_time, total_completion_time = action_client.get_time()
 				rospy.loginfo("Total time spent on Synthesis. %r" % total_systhessis_time)
@@ -371,7 +366,7 @@ if __name__ == '__main__':
 				break
 
 			targets = []
-			safe_targets = get_safe_targets(target_finder, clearance, frontier_clearance, maps, width, height)
+			safe_targets = get_safe_targets(target_finder, clearance, frontier_clearance, safety_net, maps, width, height)
 
 			# print("Safe targets, %r" % safe_targets)
 
@@ -382,7 +377,7 @@ if __name__ == '__main__':
 					
 					tr = Target()
 					tr.id = i
-					tr.window = round((target_window - 1) * resolution, 2)
+					tr.window = round((target_window -1 ) * resolution, 2)
 					tr.clearance = round((frontier_clearance + target_window - 1) * resolution, 2)
 					
 					for j in range(len(safe_targets[i])):
@@ -397,13 +392,14 @@ if __name__ == '__main__':
 					mapdata.send_new_goal(targets)
 					
 					# resetting the parameters
-					clearance = 0.3
-					frontier_clearance = 6
-					# action_client._ac.wait_for_result()
+					clearance = 0.1
+					frontier_clearance = 4
+					action_client._ac.wait_for_result()
 			else:
-				print("No targets.. reducing clearance and frontier_clearance.")
+				print("No targets.. reducing clearance, frontier_clearance and safety net.")
 				clearance -= 0.1
 				frontier_clearance -= 2
+				safety_net -= 2
 
 			rate.sleep()
 	except KeyboardInterrupt:
