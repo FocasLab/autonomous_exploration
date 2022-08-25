@@ -305,11 +305,10 @@ class scotsActionServer
 
 		}
 
-		scots::StaticController getController(const scots::UniformGrid &ss, const scots::UniformGrid &is, const scots::TransitionFunction &tf, 
-			const state_type &s_eta, const autonomous_exploration::Target &tr) {
+		scots::WinningDomain getDomain(const scots::UniformGrid &ss, const scots::TransitionFunction &tf, const autonomous_exploration::Target &tr) {
 			
 			// defining target set
-			auto target = [&ss, &s_eta, &tr](const abs_type& idx) {
+			auto target = [&ss, &tr](const abs_type& idx) {
 				state_type x;
 				ss.itox(idx, x);
 				// function returns 1 if cell associated with x is in target set 
@@ -323,15 +322,9 @@ class scotsActionServer
 			tt.tic();
 			scots::WinningDomain win_domain = scots::solve_reachability_game(tf, target);
 			tt.toc();
-			std::cout << "\nWinning domain for targer id " << tr.id << ", is " << win_domain.get_size() << std::endl;
+			std::cout << "\nWinning domain for target id " << tr.id << ", is " << win_domain.get_size() << std::endl;
 
-			scots::StaticController controller = scots::StaticController(ss, is, std::move(win_domain));
-
-			std::cout << "Writing to the file." << std::endl;
-			if(write_to_file(controller, "autoExpl"))
-				std::cout << "Done.\n";
-
-			return controller;
+			return win_domain;
 		}
 
 		bool rotateRobotForSomeTime(const int time) {
@@ -356,7 +349,7 @@ class scotsActionServer
 			return true;
 		}
 
-		bool reachTarget(bool &success, const scots::StaticController &controller, const autonomous_exploration::Target &tr) {
+		bool reachTarget(const scots::StaticController &controller, const autonomous_exploration::Target &tr) {
 			//defining dynamics of robot
 			auto vehicle_post = [](state_type &x, const input_type &u) {
 				auto rhs = [](state_type& xx, const state_type &x, const input_type &u) {
@@ -396,6 +389,9 @@ class scotsActionServer
 			// robot vel msg object
 			geometry_msgs::Twist vel_msg_turtle;
 
+			// success flag
+			bool success = false;
+
 			while(ros::ok()) {
 				
 				if(as_.isPreemptRequested()) {
@@ -410,9 +406,9 @@ class scotsActionServer
 
 				if(!(target(robot_state))) {
 					// getting ready feedback handler
-					std::cout << "Robot's Current Pose: " << robot_state[0] << ", " 
-														  << robot_state[1] << ", " 
-														  << robot_state[2] << std::endl;
+					// std::cout << "Robot's Current Pose: " << robot_state[0] << ", " 
+					// 									  << robot_state[1] << ", " 
+					// 									  << robot_state[2] << std::endl;
 					feedback_.curr_pose = curr_pose;
 
 					std::vector<input_type> control_inputs = controller.peek_control<state_type, input_type>(robot_state);
@@ -471,7 +467,7 @@ class scotsActionServer
 			return success;
 		}
 
-		bool simulatePath(bool &success, const scots::StaticController &controller, const autonomous_exploration::Target &tr) {
+		bool simulatePath(const scots::StaticController &controller, const autonomous_exploration::Target &tr) {
 			//defining dynamics of robot
 			auto vehicle_post = [](state_type &x, const input_type &u) {
 				auto rhs = [](state_type& xx, const state_type &x, const input_type &u) {
@@ -508,6 +504,8 @@ class scotsActionServer
 
 			trajectory.poses.push_back(trajectory_poses);
 
+			bool success = false;
+
 			while(ros::ok()) {
 				// getting ready feedback handler
 				// std::cout << "Simulation: Robot's Current Pose: " << robot_state[0] << ", " 
@@ -539,16 +537,16 @@ class scotsActionServer
 		}
 
 		void processGoal_1(const autonomous_exploration::autoExplGoalConstPtr &goal) {
-			bool success = true;
+			bool success = false;
 			// Parsing targets
 			int num_targets = goal->targets.size();
 			// std::vector<scots::StaticController> controllers;
 
 			// for(int i = 0; i < num_targets; i++) {
-			// 	controllers.push_back(getController(ss, s_eta, goal->targets[i]));
+			// 	controllers.push_back(getDomain(ss, s_eta, goal->targets[i]));
 			// }
 
-			// scots::StaticController controller = getController(ss, is, tf, s_eta, goal->targets[1]);
+			// scots::StaticController controller = getDomain(ss, is, tf, s_eta, goal->targets[1]);
 			scots::StaticController controller; 
 			if(!read_from_file(controller, "autoExpl")) {
 				std::cout << "Could not able read for file." << std::endl;
@@ -556,8 +554,8 @@ class scotsActionServer
 			}
 
 			std::cout << "\n\nTarget Locked, starting to proceed." << std::endl;
-			success = simulatePath(success, controller, goal->targets[0]);
-			success = reachTarget(success, controller, goal->targets[0]);
+			success = simulatePath(controller, goal->targets[0]);
+			success = reachTarget(controller, goal->targets[0]);
 
 			if(success) {
 				result_.target_id = 0;
@@ -571,6 +569,8 @@ class scotsActionServer
 		}
 		
 		void processGoal(const autonomous_exploration::autoExplGoalConstPtr &goal) {
+
+			ros::Time t_begin = ros::Time::now();
 
 			struct rusage usage;
 
@@ -611,15 +611,13 @@ class scotsActionServer
 			// update the origin
 			bool origin_update_success = origin_update_client.call(req, resp);
 
-			// result parameter
-			bool success = true;
+			// success flag
+			bool success = false;
 
 			std::vector<std::vector<int>> maps = getMapMatrix(map_vector, width, height);
 
-			int target_no = 0;
-
 			visualizeObstacles(ss, maps);
-			visualizeTargets(goal->targets[target_no]);
+			visualizeTargets(goal->targets[0]);
 
 			auto avoid = [&maps, &ss, width=width, height=height, resolution=resolution](const abs_type& idx) {
 				state_type x;
@@ -653,6 +651,8 @@ class scotsActionServer
 			scots::TransitionFunction tf;
 			scots::Abstraction<state_type,input_type> abs(ss, is);
 
+			ros::Time s_begin = ros::Time::now();
+			
 			tt.tic();
 			abs.compute_gb(tf, vehicle_post, radius_post, avoid);
 			tt.toc();
@@ -663,27 +663,49 @@ class scotsActionServer
 			std::cout << "Number of transitions: " << tf.get_no_transitions() << std::endl;
 
 			// Parsing targets
+			abs_type total_domain = ss.size();
+			
+			int target_no = 0;
 			int num_targets = goal->targets.size();
-			// std::vector<scots::StaticController> controllers;
+			std::vector<scots::WinningDomain> domains;
 
-			// for(int i = 0; i < num_targets; i++) {
-			// 	controllers.push_back(getController(ss, is, tf, s_eta, goal->targets[i]));
+			for(int i = 0; i < num_targets; i++) {
+				visualizeTargets(goal->targets[i]);
+				scots::WinningDomain win_domain = getDomain(ss, tf, goal->targets[i]);
 
-			// 	// std::cout << "\n\nTarget Locked, starting to proceed." << std::endl;
-			// 	// success = simulatePath(success, controllers[i], goal->targets[i]);
-			// 	// success = reachTarget(success, controllers[i], goal->targets[i]);
-			// }
+				if(0.2 * total_domain < win_domain.get_size()) {
+					domains.push_back(win_domain);
+					target_no = i;
+					break;
+				}
+				else {
+					ROS_INFO_STREAM("Winning domain is less than 30%, going for the next target.");
+				}
+			}
 
-			scots::StaticController controller = getController(ss, is, tf, s_eta, goal->targets[target_no]);
+			ros::Duration synthesis_time = ros::Time::now() - s_begin;
 
-			std::cout << "\n\nRobot started, Reaching to the target." << std::endl;
-			success = simulatePath(success, controller, goal->targets[target_no]);
-			success = reachTarget(success, controller, goal->targets[target_no]);
+			if(domains.size() > 0) {
+				scots::StaticController controller = scots::StaticController(ss, is, std::move(domains[0]));
+
+				std::cout << "Writing to the file." << std::endl;
+				if(write_to_file(controller, "autoExpl"))
+					std::cout << "Done.\n";
+
+				std::cout << "\n\nRobot started, Reaching to the target." << std::endl;
+				success = simulatePath(controller, goal->targets[target_no]);
+				success = reachTarget(controller, goal->targets[target_no]);
+			}
+			else {
+				ROS_INFO_STREAM("No reachable targets, Exploration is Done..");
+			}
+
+			ros::Duration completion_time = ros::Time::now() - t_begin;
 
 			if(success) {
-				result_.target_id = 0;
-				result_.synthesis_time = 0.0;
-				result_.completion_time = 0.0;
+				result_.target_id = target_no;
+				result_.synthesis_time = synthesis_time.toSec();
+				result_.completion_time = completion_time.toSec();
 
 				bool send_new_goal_success = send_new_goal_client.call(req, resp);
 
