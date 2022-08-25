@@ -377,7 +377,7 @@ if __name__ == '__main__':
 					
 					tr = Target()
 					tr.id = i
-					tr.window = round((target_window -1 ) * resolution, 2)
+					tr.window = round((target_window - 1) * resolution, 2)
 					tr.clearance = round((frontier_clearance + target_window - 1) * resolution, 2)
 					
 					for j in range(len(safe_targets[i])):
