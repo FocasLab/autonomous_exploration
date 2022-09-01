@@ -29,11 +29,8 @@ namespace scots {
  * It is required to be an integer type. It determines implicitly an upper
  * bound on the number of abstract states (default = 2^32-1). 
  **/
-#ifndef SCOTS_BDD
+
 using abs_type=std::uint32_t;
-#else 
-using abs_type=std::uint64_t;
-#endif 
 
 /**
  * @class UniformGrid 

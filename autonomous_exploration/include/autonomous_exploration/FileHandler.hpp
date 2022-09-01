@@ -17,13 +17,6 @@
 #include <climits>
 #include <iomanip>
 
-#ifdef SCOTS_BDD
-/* writing and reading bdd files */
-#include <stdlib.h>
-#include "dddmp.h"
-#include "cuddObj.hh"
-#endif
-
 #define SCOTS_FH_VERSION    "v0.2"
 #define SCOTS_FH_SYMBOL     "#"
 #define SCOTS_FH_SEPERATOR  ";"
@@ -168,38 +161,6 @@ public:
     }
     return false;
   }
-#ifdef SCOTS_BDD 
-  /* functions are only availabe if BDD support is activated */  
-  bool add_BDD(const Cudd& manager, const BDD& bdd, char** varnames, char mode='B') {
-    /* disable reordering (if enabled) */
-    Cudd_ReorderingType *method=nullptr;
-    if(manager.ReorderingStatus(method))
-      manager.AutodynDisable();
-    /* open filename */
-    std::string filename = m_filename.append(SCOTS_FH_BDD_EXTENSION);
-    FILE *file = fopen (filename.c_str(),"w");
-    FILE *fp1 = fopen("bdddump1","w");
-    if(!file) 
-      return false;
-    int store = Dddmp_cuddBddStore(bdd.manager(),NULL,
-                                   bdd.getNode(),varnames,NULL,
-                                   (int)mode,DDDMP_VARIDS,NULL,file);
-    //int store1 = Cudd_DumpDot(bdd.manager(),1, bdd.getNode(),NULL,NULL,fp1);
-    int store1 =Cudd_DagSize(bdd.getNode());
-    std::cout<<"hi"<<store1;
-    //Cudd_PrintInfo(bdd.manager(),fp1); 
-    fclose(fp1);                              
-    if(fclose(file))
-      return false;
-    if (store!=DDDMP_SUCCESS)  
-      return false;
-    /* reactivate reordering if it was enabled */
-    if(method!=nullptr)
-      manager.AutodynEnable(*method);
-
-    return true;
-  }
-#endif
 };
 
 /* The FileReader class is used to read information from files */
@@ -448,37 +409,6 @@ public:
     }
     return 0;
   }
-#ifdef SCOTS_BDD 
-  /* functions are only availabe if BDD support is activated */  
-  bool get_BDD(const Cudd& manager, BDD& bdd, char mode='B') {
-    /* disable reordering (if enabled) */
-    Cudd_ReorderingType *method=nullptr;
-    if(manager.ReorderingStatus(method))
-      manager.AutodynDisable();
-
-    /* open file1name */
-    std::string filename = m_filename.append(SCOTS_FH_BDD_EXTENSION);
-    FILE *file = fopen(filename.c_str(),"r");
-    if(!file) 
-      return false;
-
-
-    DdNode *node =
-    Dddmp_cuddBddLoad(manager.getManager(),
-                      DDDMP_VAR_MATCHIDS,NULL,NULL,
-                      NULL,(int)mode,NULL,file);
-    fclose(file);
-    if(!node) 
-      return false;
-    bdd=BDD(manager,node);
-    /* reactivate reordering if it was enabled */
-    if(method!=nullptr)
-      manager.AutodynEnable(*method);
-
-    return true;
-  }
-#endif
-
 };
 
 

@@ -18,10 +18,6 @@
 #include "autonomous_exploration/StaticController.hpp"
 #include "autonomous_exploration/WinningDomain.hpp"
 
-#ifdef SCOTS_BDD
-#include "SymbolicSet.hh"
-#endif 
-
 /* StaticController definitions */
 #define  SCOTS_SC_TYPE          "STATICCONTROLLER"
 
@@ -197,86 +193,6 @@ bool write_to_file(const UniformGrid& grid, const F& atomic_prop, const std::str
     return true;
 }
 
-#ifdef SCOTS_BDD
-/** @brief write SymbolicSet to file **/
-inline
-bool write_to_file(const SymbolicSet& set, const std::string& filename) {
-    FileWriter writer(filename);
-    if(writer.create()) {
-
-        writer.add_VERSION();
-        writer.add_TYPE(SCOTS_SS_TYPE);
-        writer.add_MEMBER(SCOTS_UG_DIM,set.get_dim());
-        writer.add_VECTOR(SCOTS_UG_ETA,set.get_eta());
-        writer.add_VECTOR(SCOTS_UG_LOWER_LEFT,set.get_lower_left());
-        writer.add_VECTOR(SCOTS_UG_UPPER_RIGHT,set.get_upper_right());
-        auto intervals = set.get_bdd_intervals();
-        for(int i=0;i<set.get_dim(); i++) {
-            std::string s = SCOTS_SS_BDD_VAR_ID;
-            writer.add_VECTOR(s.append(std::to_string(i+1)),intervals[i].get_bdd_var_ids());
-        }
-
-        writer.close();
-        return true;
-    }
-    return false;
-}
-
-/** 
- * @brief write BDD with its SymbolicSet information to a file via a FileWriter
- * The BDD is stored in filename.bdd\n
- * The SymbolicSet is stored in filename.scs\n
- * See dddmp.h for the different modes of writing.
- **/
-inline
-bool write_to_file(const Cudd& manager, const SymbolicSet& set, const BDD& bdd, const std::string& filename, char mode='B') {
-    FileWriter writer(filename);
-    if(!write_to_file(set,filename)) {
-        return false;
-    }
-   /* check if we should write slugs variable names */
-   if(set.get_slugs_var_names().size()) {
-    /* create data structure for variable names of the BDD variables */
-    char** varnames = new char*[manager.ReadSize()];
-    for(int i=0; i<manager.ReadSize(); i++) 
-      varnames[i]=nullptr;
-    /* create marker to keep track which variable names are allocated here */
-    std::unique_ptr<bool[]> marker(new bool[manager.ReadSize()]());
-     /* fill varnames with slugs variable names */
-    auto slugs_names = set.get_slugs_var_names();
-    auto bdd_ids = set.get_bdd_var_ids();
-    for(size_t i=0; i<slugs_names.size(); i++) 
-      varnames[bdd_ids[i]]=&slugs_names[i][0];
-    for(int i=0; i<manager.ReadSize(); i++) {
-      if(varnames[i]==nullptr) {
-        varnames[i] = new char;
-        varnames[i][0]='d';
-        marker[i]=true;
-      }
-    }
-
-    /* write BDD to file */
-    if(!writer.add_BDD(manager,bdd,varnames,mode)) {
-        return false;
-    }
-
-    /* clean variable names */
-    for(int i=0; i<manager.ReadSize(); i++) {
-      if(marker[i])
-        delete varnames[i];
-    }
-    delete[] varnames;
-   } else {
-    /* write BDD to file */
-    if(!writer.add_BDD(manager,bdd,nullptr,mode)) {
-        return false;
-    }
-  }
-
-  return true;
-}
-#endif
-
 
 /** @brief read WinningDomain from a file via a FileReader **/
 inline
@@ -418,56 +334,6 @@ bool read_from_file(TransitionFunction& tf, const std::string& filename) {
     reader.close();
     return true;
 }
-
-#ifdef SCOTS_BDD
-/** @brief read SymbolicSet to file **/
-inline
-bool read_from_file(const Cudd& manager, SymbolicSet& set, const std::string& filename) {
-    /* read UniformGrid from file */
-    UniformGrid grid;
-    if(!read_from_file(grid,filename)){
-        return false;
-    }
-    /* read the BDD variable IDs and create IntegerInterval*/
-    std::vector<IntegerInterval<abs_type>> bdd_interval{};
-    FileReader reader(filename);
-    if(reader.open()) {
-        size_t offset = 0;
-        for(int i=0;i<grid.get_dim(); i++) {
-            std::vector<unsigned int> var_id {};
-            std::string s = SCOTS_SS_BDD_VAR_ID;
-            offset=reader.get_VECTOR(s.append(std::to_string(i+1)),var_id,offset);
-            if(!offset)
-                return false;
-            bdd_interval.emplace_back(manager,abs_type{0},grid.get_no_gp_per_dim()[i]-abs_type{1},var_id);
-        }
-        reader.close();
-    } else {
-        return false;
-    }
-    /* initialize SymbolicSet  */
-    set = SymbolicSet(grid,bdd_interval);
-    return true;
-}
-
-/** 
- * @brief read BDD with its SymbolicSet information from file
- * The SymbolicSet is read from filename.scs\n
- * The BDD is read from filename.bdd\n
- * See dddmp.h for the different modes of reading.
- **/
-inline
-bool read_from_file(const Cudd& manager, SymbolicSet& set, BDD& bdd, const std::string& filename, char mode = 'B') {
-    if(!read_from_file(manager,set,filename))
-        return false;
-    FileReader reader(filename);
-    if(!reader.get_BDD(manager,bdd,mode)) {
-        return false;
-    }
-    set.clean(manager,bdd);
-    return true;
-}
-#endif
 
 
 } /* end namespace */
