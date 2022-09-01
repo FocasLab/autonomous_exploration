@@ -6,8 +6,8 @@
  */
 
 
-#ifndef FILEHANDLER_HH_
-#define FILEHANDLER_HH_
+#ifndef FILEHANDLER_HPP_
+#define FILEHANDLER_HPP_
 
 #include <iostream>
 #include <sstream>
@@ -485,4 +485,4 @@ public:
 /** @endcond **/
 
 } /*end of namepace scots*/
-#endif /* FILEHANDLER_HH_ */
+#endif /* FILEHANDLER_HPP_ */

@@ -1,5 +1,5 @@
 /*
- * WinningDomain.hh
+ * WinningDomain.hpp
  *
  *  created: Jan 2017
  *   author: Matthias Rungger
@@ -8,15 +8,15 @@
 
 /** @file **/
 
-#ifndef WINNINGDOMAIN_HH_
-#define WINNINGDOMAIN_HH_
+#ifndef WINNINGDOMAIN_HPP_
+#define WINNINGDOMAIN_HPP_
 
 #include <vector>
 #include <iostream>
 #include <limits>
 
 /* to get abs_type alias */
-#include "UniformGrid.hh"
+#include "autonomous_exploration/UniformGrid.hpp"
 
 /** @namespace scots **/ 
 namespace scots {
@@ -27,7 +27,7 @@ namespace scots {
  * @brief The abstract states from which the controller is winning
  *
  * The WinningDomain is computed by one of the game solving algorithms in
- * GameSovler.hh and represents the set of abstract states in {0,...,N-1} 
+ * GameSovler.hpp and represents the set of abstract states in {0,...,N-1} 
  * from which the controller is winning.
  *
  * For a mathematical definition see the <a href="./../../manual/manual.pdf">manual.pdf</a>.
@@ -171,4 +171,4 @@ public:
 };
 
 } /* close namespace */
-#endif /* WINNINGDOMAIN_HH_ */
+#endif /* WINNINGDOMAIN_HPP_ */

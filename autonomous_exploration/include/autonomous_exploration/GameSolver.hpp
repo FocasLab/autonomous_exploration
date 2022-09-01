@@ -1,5 +1,5 @@
 /*
- * GameSolver.hh
+ * GameSolver.hpp
  *
  *  created: Feb 2016
  *   author: Matthias Rungger
@@ -8,8 +8,8 @@
 
 /** @file **/
 
-#ifndef GAMESOLVER_HH_
-#define GAMESOLVER_HH_
+#ifndef GAMESOLVER_HPP_
+#define GAMESOLVER_HPP_
 
 #include <iostream>
 #include <climits>
@@ -18,9 +18,9 @@
 #include <memory>
 #include <utility>
 
-#include "UniformGrid.hh"
-#include "TransitionFunction.hh"
-#include "WinningDomain.hh"
+#include "autonomous_exploration/UniformGrid.hpp"
+#include "autonomous_exploration/TransitionFunction.hpp"
+#include "autonomous_exploration/WinningDomain.hpp"
 
 
 /** @namespace scots **/ 
@@ -209,4 +209,4 @@ WinningDomain solve_invariance_game(const TransitionFunction& trans_function, F&
 }
 
 } /* end of namespace scots */
-#endif /* GAMESOLVER_HH_ */
+#endif /* GAMESOLVER_HPP_ */

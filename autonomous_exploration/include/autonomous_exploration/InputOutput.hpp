@@ -1,5 +1,5 @@
 /*
- * InputOutput.hh
+ * InputOutput.hpp
  *
  *     created: Jan 2017
  *      author: Matthias Rungger
@@ -7,16 +7,16 @@
 
 /** @file **/
 
-#ifndef InputOutput_HH_
-#define InputOutput_HH_
+#ifndef InputOutput_HPP_
+#define InputOutput_HPP_
 
 #include <string>
 
-#include "FileHandler.hh"
-#include "UniformGrid.hh"
-#include "TransitionFunction.hh"
-#include "StaticController.hh"
-#include "WinningDomain.hh"
+#include "autonomous_exploration/FileHandler.hpp"
+#include "autonomous_exploration/UniformGrid.hpp"
+#include "autonomous_exploration/TransitionFunction.hpp"
+#include "autonomous_exploration/StaticController.hpp"
+#include "autonomous_exploration/WinningDomain.hpp"
 
 #ifdef SCOTS_BDD
 #include "SymbolicSet.hh"
@@ -471,4 +471,4 @@ bool read_from_file(const Cudd& manager, SymbolicSet& set, BDD& bdd, const std::
 
 
 } /* end namespace */
-#endif /* InputOutput_HH_ */
+#endif /* InputOutput_HPP_ */

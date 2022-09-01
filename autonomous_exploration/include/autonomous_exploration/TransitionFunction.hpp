@@ -1,5 +1,5 @@
 /*
- * TransitionFunction.hh
+ * TransitionFunction.hpp
  *
  *  createdn: Jan 2017
  *    author: Matthias Rungger
@@ -8,8 +8,8 @@
 
 /** @file **/
 
-#ifndef TRANSITIONFUNKTION_HH_
-#define TRANSITIONFUNKTION_HH_
+#ifndef TRANSITIONFUNKTION_HPP_
+#define TRANSITIONFUNKTION_HPP_
 
 #include <iostream>
 #include <sstream>
@@ -19,7 +19,7 @@
 #include <memory>
 
 /* to get abs_type alias */
-#include "UniformGrid.hh"
+#include "autonomous_exploration/UniformGrid.hpp"
 
 
 /** @namespace scots **/ 
@@ -135,7 +135,7 @@ public:
       }
     } else {
       std::ostringstream os;
-      os << "scots::TransitionFunction.hh: Unable to get post. Transition relation is empty.";
+      os << "scots::TransitionFunction.hpp: Unable to get post. Transition relation is empty.";
       throw std::runtime_error(os.str().c_str());
     }
     return pre;
@@ -157,7 +157,7 @@ public:
       }
     } else {
       std::ostringstream os;
-      os << "TransitionFunction.hh: Error: Unable to get post. Transition relation is empty, i.e.,  m_pre and post_ are nullptr.";
+      os << "TransitionFunction.hpp: Error: Unable to get post. Transition relation is empty, i.e.,  m_pre and post_ are nullptr.";
       throw std::runtime_error(os.str().c_str());
     }
     return post;
@@ -196,4 +196,4 @@ public:
 };
 
 } /* end of namespace scots */
-#endif /* TRANSITIONFUNCTION_HH_ */
+#endif /* TRANSITIONFUNCTION_HPP_ */

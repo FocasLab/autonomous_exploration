@@ -1,5 +1,5 @@
 /*
- * UniformGrid.hh
+ * UniformGrid.hpp
  *
  *     created: Dec 2016
  *      author: Matthias Rungger
@@ -8,8 +8,8 @@
 
 /** @file **/
 
-#ifndef UNIFORMGRID_HH_
-#define UNIFORMGRID_HH_
+#ifndef UNIFORMGRID_HPP_
+#define UNIFORMGRID_HPP_
 
 #include <sstream>
 #include <iostream>
@@ -366,7 +366,7 @@ protected:
       m_NN[i] = total;
       /* check overflow */
       if(total > (max/m_no_grid_points[i])) {
-        throw std::runtime_error("\nscots::UniformGrid: number of grid points exceeds maximum value of abs_type (defined in UniformGrid.hh).");
+        throw std::runtime_error("\nscots::UniformGrid: number of grid points exceeds maximum value of abs_type (defined in UniformGrid.hpp).");
       }
       total *= m_no_grid_points[i];
     }
@@ -384,4 +384,4 @@ private:
 };
 
 } /* close namespace */
-#endif /* UNIFORMGRID_HH_ */
+#endif /* UNIFORMGRID_HPP_ */

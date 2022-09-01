@@ -1,5 +1,5 @@
 /*
- * StaticController.hh
+ * StaticController.hpp
  *
  *  created: Dec 2016
  *   author: Frederik Kunik
@@ -9,15 +9,15 @@
 
 /** @file **/
 
-#ifndef STATICCONTROLLER_HH_
-#define STATICCONTROLLER_HH_
+#ifndef STATICCONTROLLER_HPP_
+#define STATICCONTROLLER_HPP_
 
 #include <vector>
 #include <array>
 #include <exception>
 
-#include "UniformGrid.hh"
-#include "WinningDomain.hh"
+#include "autonomous_exploration/UniformGrid.hpp"
+#include "autonomous_exploration/WinningDomain.hpp"
 
 /** @namespace scots **/ 
 namespace scots{
@@ -115,4 +115,4 @@ public:
 };
 
 } /* end of namespace scots */
-#endif /* STATICCONTROLLER_HH_ */
+#endif /* STATICCONTROLLER_HPP_ */

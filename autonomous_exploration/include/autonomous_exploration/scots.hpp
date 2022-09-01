@@ -1,5 +1,5 @@
 /*
- * scots.hh
+ * scots.hpp
  *
  *     created: Jan 2017
  *      author: Matthias Rungger
@@ -7,16 +7,16 @@
 
 /** @file **/
 
-#ifndef SCOTS_HH_
-#define SCOTS_HH_
+#ifndef SCOTS_HPP_
+#define SCOTS_HPP_
 
-#include "TransitionFunction.hh"
-#include "UniformGrid.hh"
-#include "Abstraction.hh"
-#include "GameSolver.hh"
-#include "WinningDomain.hh"
-#include "StaticController.hh"
-#include "InputOutput.hh"
+#include "autonomous_exploration/TransitionFunction.hpp"
+#include "autonomous_exploration/UniformGrid.hpp"
+#include "autonomous_exploration/Abstraction.hpp"
+#include "autonomous_exploration/GameSolver.hpp"
+#include "autonomous_exploration/WinningDomain.hpp"
+#include "autonomous_exploration/StaticController.hpp"
+#include "autonomous_exploration/InputOutput.hpp"
 
 
 /* if scots is used in connection with the cudd library */
@@ -29,5 +29,5 @@
 #include "EnfPre.hh"
 #endif
 
-#endif /* SCOTS_HH_ */
+#endif /* SCOTS_HPP_ */
 

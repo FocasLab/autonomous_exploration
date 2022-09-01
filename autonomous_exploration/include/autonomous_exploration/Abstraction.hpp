@@ -1,21 +1,21 @@
 /*
- * Abstraction.hh
+ * Abstraction.hpp
  *
  *  created: Jan 2017
  *   author: Matthias Rungger
  */
 
 /** @file **/
-#ifndef ABSTRACTION_HH_
-#define ABSTRACTION_HH_
+#ifndef ABSTRACTION_HPP_
+#define ABSTRACTION_HPP_
 
 #include <iostream>
 #include <cstring>
 #include <memory>
 #include <vector>
 
-#include "UniformGrid.hh"
-#include "TransitionFunction.hh"
+#include "autonomous_exploration/UniformGrid.hpp"
+#include "autonomous_exploration/TransitionFunction.hpp"
 
 /** @namespace scots **/ 
 namespace scots {
@@ -487,4 +487,4 @@ public:
 };
 
 } /* close namespace */
-#endif /* ABSTRACTION_HH_ */
+#endif /* ABSTRACTION_HPP_ */
