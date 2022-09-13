@@ -6,7 +6,7 @@ Panels:
       Expanded:
         - /TF1/Frames1
       Splitter Ratio: 0.594406008720398
-    Tree Height: 719
+    Tree Height: 363
   - Class: rviz/Selection
     Name: Selection
   - Class: rviz/Tool Properties
@@ -22,7 +22,6 @@ Panels:
     Name: Views
     Splitter Ratio: 0.5
   - Class: rviz/Time
-    Experimental: false
     Name: Time
     SyncMode: 0
     SyncSource: LaserScan
@@ -65,31 +64,65 @@ Visualization Manager:
           Alpha: 1
           Show Axes: false
           Show Trail: false
+        base_inertia:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
         base_link:
           Alpha: 1
           Show Axes: false
           Show Trail: false
           Value: true
-        base_scan:
+        camera:
           Alpha: 1
           Show Axes: false
           Show Trail: false
           Value: true
-        caster_back_link:
+        imu:
           Alpha: 1
           Show Axes: false
           Show Trail: false
           Value: true
-        imu_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-        wheel_left_link:
+        left_front_wheel:
           Alpha: 1
           Show Axes: false
           Show Trail: false
           Value: true
-        wheel_right_link:
+        left_rear_wheel:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        left_steering_hinge:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        lidar:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        real_sense:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        realsense_depth:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        right_front_wheel:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        right_rear_wheel:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        right_steering_hinge:
           Alpha: 1
           Show Axes: false
           Show Trail: false
@@ -101,30 +134,10 @@ Visualization Manager:
       Value: true
       Visual Enabled: true
     - Class: rviz/TF
-      Enabled: true
+      Enabled: false
       Frame Timeout: 15
       Frames:
         All Enabled: false
-        base_footprint:
-          Value: true
-        base_link:
-          Value: false
-        base_scan:
-          Value: false
-        caster_back_link:
-          Value: false
-        imu_link:
-          Value: false
-        map:
-          Value: true
-        odom:
-          Value: false
-        origin:
-          Value: true
-        wheel_left_link:
-          Value: false
-        wheel_right_link:
-          Value: false
       Marker Alpha: 1
       Marker Scale: 1
       Name: TF
@@ -132,24 +145,9 @@ Visualization Manager:
       Show Axes: true
       Show Names: true
       Tree:
-        map:
-          odom:
-            base_footprint:
-              base_link:
-                base_scan:
-                  {}
-                caster_back_link:
-                  {}
-                imu_link:
-                  {}
-                wheel_left_link:
-                  {}
-                wheel_right_link:
-                  {}
-          origin:
-            {}
+        {}
       Update Interval: 0
-      Value: true
+      Value: false
     - Alpha: 1
       Autocompute Intensity Bounds: true
       Autocompute Value Bounds:
@@ -205,8 +203,7 @@ Visualization Manager:
       Marker Topic: /scots_visualization
       Name: Marker
       Namespaces:
-        obstacles: true
-        target_window: true
+        {}
       Queue Size: 100
       Value: true
     - Alpha: 1
@@ -294,20 +291,20 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Scale: 77.44000244140625
+      Scale: 83.03963470458984
       Target Frame: map
-      X: -2.8607425689697266
-      Y: -0.2543056309223175
+      X: 1.8602659702301025
+      Y: -2.718608856201172
     Saved: ~
 Window Geometry:
   Displays:
-    collapsed: false
+    collapsed: true
   Height: 1016
-  Hide Left Dock: false
+  Hide Left Dock: true
   Hide Right Dock: true
   Image:
     collapsed: false
-  QMainWindow State: 000000ff00000000fd0000000400000000000001560000035afc0200000009fb0000001200530065006c0065006300740069006f006e00000001e10000009b0000005c00fffffffb0000001e0054006f006f006c002000500072006f007000650072007400690065007302000001ed000001df00000185000000a3fb000000120056006900650077007300200054006f006f02000001df000002110000018500000122fb000000200054006f006f006c002000500072006f0070006500720074006900650073003203000002880000011d000002210000017afb000000100044006900730070006c006100790073010000003d0000035a000000c900fffffffb0000002000730065006c0065006300740069006f006e00200062007500660066006500720200000138000000aa0000023a00000294fb00000014005700690064006500530074006500720065006f02000000e6000000d2000003ee0000030bfb0000000c004b0069006e0065006300740200000186000001060000030c00000261fb0000000a0049006d006100670065000000020f000001900000001600ffffff000000010000010f0000035cfc0200000003fb0000001e0054006f006f006c002000500072006f00700065007200740069006500730100000041000000780000000000000000fb0000000a0056006900650077007300000000430000035c000000a400fffffffb0000001200530065006c0065006300740069006f006e010000025a000000b200000000000000000000000200000490000000a9fc0100000001fb0000000a00560069006500770073030000004e00000080000002e10000019700000003000003850000003efc0100000002fb0000000800540069006d0065010000000000000385000002eb00fffffffb0000000800540069006d00650100000000000004500000000000000000000002290000035a00000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
+  QMainWindow State: 000000ff00000000fd0000000400000000000001560000035afc0200000009fb0000001200530065006c0065006300740069006f006e00000001e10000009b0000005c00fffffffb0000001e0054006f006f006c002000500072006f007000650072007400690065007302000001ed000001df00000185000000a3fb000000120056006900650077007300200054006f006f02000001df000002110000018500000122fb000000200054006f006f006c002000500072006f0070006500720074006900650073003203000002880000011d000002210000017afb000000100044006900730070006c006100790073000000003d0000035a000000c900fffffffb0000002000730065006c0065006300740069006f006e00200062007500660066006500720200000138000000aa0000023a00000294fb00000014005700690064006500530074006500720065006f02000000e6000000d2000003ee0000030bfb0000000c004b0069006e0065006300740200000186000001060000030c00000261fb0000000a0049006d006100670065000000020f000001900000001600ffffff000000010000010f0000035cfc0200000003fb0000001e0054006f006f006c002000500072006f00700065007200740069006500730100000041000000780000000000000000fb0000000a0056006900650077007300000000430000035c000000a400fffffffb0000001200530065006c0065006300740069006f006e010000025a000000b200000000000000000000000200000490000000a9fc0100000001fb0000000a00560069006500770073030000004e00000080000002e10000019700000003000003bc0000003efc0100000002fb0000000800540069006d00650100000000000003bc000003bc00fffffffb0000000800540069006d00650100000000000004500000000000000000000003bc0000035a00000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
   Selection:
     collapsed: false
   Time:
@@ -316,6 +313,6 @@ Window Geometry:
     collapsed: false
   Views:
     collapsed: true
-  Width: 901
-  X: 830
+  Width: 956
+  X: 964
   Y: 27
