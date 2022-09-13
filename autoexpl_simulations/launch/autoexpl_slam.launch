@@ -21,6 +21,6 @@
   <!-- rviz -->
   <group if="$(arg open_rviz)"> 
     <node pkg="rviz" type="rviz" name="rviz" required="true"
-          args="-d $(find exploration_simulations)/rviz/autoexpl.rviz"/>
+          args="-d $(find autoexpl_simulations)/rviz/autoexpl.rviz"/>
   </group>
 </launch>

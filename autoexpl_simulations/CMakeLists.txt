@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.0.2)
-project(exploration_simulations)
+project(autoexpl_simulations)
 
 ## Compile as C++11, supported in ROS Kinetic and newer
 # add_compile_options(-std=c++11)
@@ -105,7 +105,7 @@ find_package(catkin REQUIRED COMPONENTS
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
 #  INCLUDE_DIRS include
-#  LIBRARIES exploration_simulations
+#  LIBRARIES autoexpl_simulations
 #  CATKIN_DEPENDS geometry_msgs std_msgs turtlebot3_gazebo
 #  DEPENDS system_lib
 )
@@ -123,7 +123,7 @@ include_directories(
 
 ## Declare a C++ library
 # add_library(${PROJECT_NAME}
-#   src/${PROJECT_NAME}/exploration_simulations.cpp
+#   src/${PROJECT_NAME}/autoexpl_simulations.cpp
 # )
 
 ## Add cmake target dependencies of the library
@@ -134,7 +134,7 @@ include_directories(
 ## Declare a C++ executable
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
-# add_executable(${PROJECT_NAME}_node src/exploration_simulations_node.cpp)
+# add_executable(${PROJECT_NAME}_node src/autoexpl_simulations_node.cpp)
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
@@ -198,7 +198,7 @@ include_directories(
 #############
 
 ## Add gtest based cpp test target and link libraries
-# catkin_add_gtest(${PROJECT_NAME}-test test/test_exploration_simulations.cpp)
+# catkin_add_gtest(${PROJECT_NAME}-test test/test_autoexpl_simulations.cpp)
 # if(TARGET ${PROJECT_NAME}-test)
 #   target_link_libraries(${PROJECT_NAME}-test ${PROJECT_NAME})
 # endif()
