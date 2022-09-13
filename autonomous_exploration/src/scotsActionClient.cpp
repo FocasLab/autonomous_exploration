@@ -8,8 +8,8 @@
 #include <ros/ros.h>
 #include <actionlib/client/simple_action_client.h>
 #include <actionlib/client/terminal_state.h>
-#include <autonomous_exploration/autoExplAction.h>
-#include <autonomous_exploration/Target.h>
+#include <autoexpl_msgs/AutoExplAction.h>
+#include <autoexpl_msgs/Target.h>
 
 // obstacle includes
 #include <geometry_msgs/Pose2D.h>
@@ -24,7 +24,7 @@ int main(int argc, char** argv) {
 
 	// creating simple action client
 	// ture for client needs to spin its own thread
-	actionlib::SimpleActionClient<autonomous_exploration::autoExplAction> ac_("/scots", true);
+	actionlib::SimpleActionClient<autoexpl_msgs::AutoExplAction> ac_("/scots", true);
 
 	// waiting till action server is not started.
 	std::cout << "Waiting for for action server to start.\n" << std::endl;
@@ -32,7 +32,7 @@ int main(int argc, char** argv) {
 
 	std::cout << "Action server is started, sending goals.." << std::endl;
 
-	autonomous_exploration::autoExplGoal goal;
+	autoexpl_msgs::AutoExplGoal goal;
 
 	// adding targets to the goal
 	std::vector<std::vector<double>> target_data = {
@@ -49,7 +49,7 @@ int main(int argc, char** argv) {
 		// total number of points in one target
 		int num_points = target_data[i].size();
 
-		autonomous_exploration::Target tr;
+		autoexpl_msgs::Target tr;
 		tr.id = i;
 
 		for(int j = 0; j < num_points; j++) {

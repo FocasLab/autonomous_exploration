@@ -3,9 +3,9 @@
 # ros includes
 import rospy
 import actionlib
-from autonomous_exploration.msg import autoExplAction
-from autonomous_exploration.msg import autoExplGoal
-from autonomous_exploration.msg import Target
+from autoexpl_msgs.msg import AutoExplAction
+from autoexpl_msgs.msg import AutoExplGoal
+from autoexpl_msgs.msg import Target
 from nav_msgs.msg import OccupancyGrid
 from std_srvs.srv import Empty, EmptyResponse
 
@@ -232,7 +232,7 @@ class scotsActionClient:
 		self.total_systhessis_time = 0
 		self.total_completion_time = 0
 
-		self._ac = actionlib.SimpleActionClient("/scots", autoExplAction)
+		self._ac = actionlib.SimpleActionClient("/scots", AutoExplAction)
 		self._ac.wait_for_server()
 
 		rospy.loginfo("Action Server is Up, starting to send goals.")
@@ -241,7 +241,7 @@ class scotsActionClient:
 	def send_goal(self, targets):
 		
 		# Create Goal message for Simple Action Server
-		goal = autoExplGoal(targets=targets)
+		goal = AutoExplGoal(targets=targets)
 		
 		'''
 			* done_cb is set to the function pointer of the function which should be called once 

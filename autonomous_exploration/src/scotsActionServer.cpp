@@ -7,8 +7,8 @@
 // ros includes
 #include <ros/ros.h>
 #include <actionlib/server/simple_action_server.h>
-#include <autonomous_exploration/autoExplAction.h>
-#include <autonomous_exploration/Target.h>
+#include <autoexpl_msgs/AutoExplAction.h>
+#include <autoexpl_msgs/Target.h>
 
 // ros robot includes
 #include <geometry_msgs/Pose2D.h>
@@ -35,7 +35,6 @@
 #include <vector>
 #include <array>
 #include <cmath>
-#include <Eigen/Dense>
 
 // memory profiling
 #include <sys/time.h>
@@ -48,12 +47,12 @@ class scotsActionServer
 		ros::NodeHandle nh_;
 		
 		// NodeHandle instance must be created before this line. Otherwise strange error occurs.
-		actionlib::SimpleActionServer<autonomous_exploration::autoExplAction> as_;
+		actionlib::SimpleActionServer<autoexpl_msgs::AutoExplAction> as_;
 		std::string action_name_;
 
 		// create messages that are used to published feedback/result
-		autonomous_exploration::autoExplFeedback feedback_;
-		autonomous_exploration::autoExplResult result_;
+		autoexpl_msgs::AutoExplFeedback feedback_;
+		autoexpl_msgs::AutoExplResult result_;
 
 		// state space
 		std::vector<int> map_vector;
@@ -263,7 +262,7 @@ class scotsActionServer
 			}
 		}
 
-		void visualizeTargets(const autonomous_exploration::Target &tr) {
+		void visualizeTargets(const autoexpl_msgs::Target &tr) {
 			// visaulization parameters
 			visualization_msgs::Marker frontier, target;
 
@@ -305,7 +304,7 @@ class scotsActionServer
 
 		}
 
-		scots::WinningDomain getDomain(const scots::UniformGrid &ss, const scots::TransitionFunction &tf, const autonomous_exploration::Target &tr) {
+		scots::WinningDomain getDomain(const scots::UniformGrid &ss, const scots::TransitionFunction &tf, const autoexpl_msgs::Target &tr) {
 			
 			// defining target set
 			auto target = [&ss, &tr](const abs_type& idx) {
@@ -349,7 +348,7 @@ class scotsActionServer
 			return true;
 		}
 
-		bool reachTarget(const scots::StaticController &controller, const autonomous_exploration::Target &tr) {
+		bool reachTarget(const scots::StaticController &controller, const autoexpl_msgs::Target &tr) {
 			//defining dynamics of robot
 			auto vehicle_post = [](state_type &x, const input_type &u) {
 				auto rhs = [](state_type& xx, const state_type &x, const input_type &u) {
@@ -469,7 +468,7 @@ class scotsActionServer
 			return success;
 		}
 
-		bool simulatePath(const scots::StaticController &controller, const autonomous_exploration::Target &tr) {
+		bool simulatePath(const scots::StaticController &controller, const autoexpl_msgs::Target &tr) {
 			//defining dynamics of robot
 			ROS_INFO_STREAM("Publishing the trajectory..");
 
@@ -552,7 +551,7 @@ class scotsActionServer
 			return success;
 		}
 
-		void processGoal_1(const autonomous_exploration::autoExplGoalConstPtr &goal) {
+		void processGoal_1(const autoexpl_msgs::AutoExplGoalConstPtr &goal) {
 			bool success = false;
 			// Parsing targets
 			int num_targets = goal->targets.size();
@@ -564,7 +563,7 @@ class scotsActionServer
 
 			// scots::StaticController controller = getDomain(ss, is, tf, s_eta, goal->targets[1]);
 			scots::StaticController controller; 
-			if(!read_from_file(controller, "autoExpl")) {
+			if(!read_from_file(controller, "AutoExpl")) {
 				std::cout << "Could not able read for file." << std::endl;
 				success = false;
 			}
@@ -584,7 +583,7 @@ class scotsActionServer
 			}
 		}
 		
-		void processGoal(const autonomous_exploration::autoExplGoalConstPtr &goal) {
+		void processGoal(const autoexpl_msgs::AutoExplGoalConstPtr &goal) {
 
 			ros::Time t_begin = ros::Time::now();
 
@@ -726,7 +725,7 @@ class scotsActionServer
 				scots::StaticController controller = scots::StaticController(ss, is, std::move(domains[0]));
 
 				std::cout << "Writing to the file." << std::endl;
-				if(write_to_file(controller, "autoExpl"))
+				if(write_to_file(controller, "AutoExpl"))
 					std::cout << "Done.\n";
 
 				std::cout << "\n\nRobot started, Reaching to the target." << std::endl;
