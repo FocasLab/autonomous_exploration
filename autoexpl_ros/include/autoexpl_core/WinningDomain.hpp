@@ -16,7 +16,7 @@
 #include <limits>
 
 /* to get abs_type alias */
-#include "autonomous_exploration/UniformGrid.hpp"
+#include "autoexpl_core/UniformGrid.hpp"
 
 /** @namespace scots **/ 
 namespace scots {

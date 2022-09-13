@@ -12,11 +12,11 @@
 
 #include <string>
 
-#include "autonomous_exploration/FileHandler.hpp"
-#include "autonomous_exploration/UniformGrid.hpp"
-#include "autonomous_exploration/TransitionFunction.hpp"
-#include "autonomous_exploration/StaticController.hpp"
-#include "autonomous_exploration/WinningDomain.hpp"
+#include "autoexpl_core/FileHandler.hpp"
+#include "autoexpl_core/UniformGrid.hpp"
+#include "autoexpl_core/TransitionFunction.hpp"
+#include "autoexpl_core/StaticController.hpp"
+#include "autoexpl_core/WinningDomain.hpp"
 
 /* StaticController definitions */
 #define  SCOTS_SC_TYPE          "STATICCONTROLLER"

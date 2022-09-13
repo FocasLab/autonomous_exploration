@@ -16,8 +16,8 @@
 #include <array>
 #include <exception>
 
-#include "autonomous_exploration/UniformGrid.hpp"
-#include "autonomous_exploration/WinningDomain.hpp"
+#include "autoexpl_core/UniformGrid.hpp"
+#include "autoexpl_core/WinningDomain.hpp"
 
 /** @namespace scots **/ 
 namespace scots{

@@ -26,9 +26,9 @@
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 
 // scots includes 
-#include "autonomous_exploration/scots.hpp"
-#include "autonomous_exploration/RungeKutta4.hpp"
-#include "autonomous_exploration/TicToc.hpp"
+#include "autoexpl_core/scots.hpp"
+#include "autoexpl_core/RungeKutta4.hpp"
+#include "autoexpl_core/TicToc.hpp"
 
 // stl includes
 #include <iostream>

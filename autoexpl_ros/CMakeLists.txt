@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.0.2)
-project(autonomous_exploration)
+project(autoexpl_ros)
 
 ## Compile as C++11, supported in ROS Kinetic and newer
 # add_compile_options(-std=c++11)
@@ -38,7 +38,7 @@ find_package(Boost REQUIRED COMPONENTS system)
 catkin_package(
  INCLUDE_DIRS
   include
-#  LIBRARIES autonomous_exploration
+#  LIBRARIES autoexpl_ros
  CATKIN_DEPENDS
   std_srvs
   geometry_msgs
@@ -95,7 +95,7 @@ target_link_libraries(
 #   origin_pose_publisher
 #   robot_pose_publisher
 #   # The one below is the name of your package!!
-#   ${autonomous_exploration_EXPORTED_TARGETS}
+#   ${autoexpl_ros_EXPORTED_TARGETS}
 # )
 
 #############
@@ -143,7 +143,7 @@ target_link_libraries(
 #############
 
 ## Add gtest based cpp test target and link libraries
-# catkin_add_gtest(${PROJECT_NAME}-test test/test_autonomous_exploration.cpp)
+# catkin_add_gtest(${PROJECT_NAME}-test test/test_autoexpl_ros.cpp)
 # if(TARGET ${PROJECT_NAME}-test)
 #   target_link_libraries(${PROJECT_NAME}-test ${PROJECT_NAME})
 # endif()

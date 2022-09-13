@@ -14,8 +14,8 @@
 #include <memory>
 #include <vector>
 
-#include "autonomous_exploration/UniformGrid.hpp"
-#include "autonomous_exploration/TransitionFunction.hpp"
+#include "autoexpl_core/UniformGrid.hpp"
+#include "autoexpl_core/TransitionFunction.hpp"
 
 /** @namespace scots **/ 
 namespace scots {

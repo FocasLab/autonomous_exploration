@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <package format="2">
-  <name>autonomous_exploration</name>
+  <name>autoexpl_ros</name>
   <version>1.0.0</version>
   <description>Autonomous Exploration package with action server and safe target finder.</description>
 

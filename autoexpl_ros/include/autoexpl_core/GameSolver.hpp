@@ -18,9 +18,9 @@
 #include <memory>
 #include <utility>
 
-#include "autonomous_exploration/UniformGrid.hpp"
-#include "autonomous_exploration/TransitionFunction.hpp"
-#include "autonomous_exploration/WinningDomain.hpp"
+#include "autoexpl_core/UniformGrid.hpp"
+#include "autoexpl_core/TransitionFunction.hpp"
+#include "autoexpl_core/WinningDomain.hpp"
 
 
 /** @namespace scots **/ 
