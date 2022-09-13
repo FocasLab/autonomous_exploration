@@ -1,0 +1,23 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>autoexpl</name>
+  <version>1.0.0</version>
+  <description>Ros package for the Autonomous Exploration (meta package).</description>
+
+  <maintainer email="jaybhagiya@iisc.ac.in">Jay Bhagiya</maintainer>
+  <author email="jaybhagiya@iisc.ac.in">Jay Bhagiya</author>
+
+  <license>BSD</license>
+
+  <url type="website">http://wiki.ros.org/</url>
+  <url type="repository">https://github.com/FocasLab/autonomous_exploration_pkgs</url>
+  <url type="bugtracker">https://github.com/FocasLab/autonomous_exploration_pkgs/issues</url>
+
+  <buildtool_depend>catkin</buildtool_depend>
+  <exec_depend>autoexpl_msgs</exec_depend>
+  <exec_depend>autoexpl_ros</exec_depend>
+  <exec_depend>autoexpl_simulations</exec_depend>
+  <export>
+    <metapackage/>
+  </export>
+</package>
