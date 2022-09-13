@@ -360,6 +360,18 @@ class scotsActionServer
 				scots::runge_kutta_fixed4(rhs, x, u, state_dim, tau, 10);
 			};
 
+			// auto  vehicle_post = [](state_type &x, const input_type &u) {
+			//   /* the ode describing the vehicle */
+			//   auto rhs =[](state_type& xx,  const state_type &x, const input_type &u) {
+			//     double alpha=std::atan(std::tan(u[1]) / 2.0);
+			//     xx[0] = u[0] * std::cos(alpha + x[2]) / std::cos(alpha);
+			//     xx[1] = u[0] * std::sin(alpha + x[2]) / std::cos(alpha);
+			//     xx[2] = u[0] * std::tan(u[1]);
+			//   };
+			//   /* simulate (use 10 intermediate steps in the ode solver) */
+			//   scots::runge_kutta_fixed4(rhs, x, u, state_dim, tau, 10);
+			// };
+
 			// defining target set
 			auto target = [&tr](const state_type& x) {
 				// function returns 1 if cell associated with x is in target set 
@@ -412,16 +424,6 @@ class scotsActionServer
 					feedback_.curr_pose = curr_pose;
 
 					std::vector<input_type> control_inputs = controller.peek_control<state_type, input_type>(robot_state);
-
-					// if(control_inputs.size() < 1) {
-					// 	vel_msg_turtle.linear.x = 0.0;
-					// 	vel_msg_turtle.angular.z = 0.0;
-
-					// 	robot_vel.publish(vel_msg_turtle);
-					// 	success = false;
-					// 	std::cout << "Robot is not in the Winning domain or the Winning domain is too small. Try with different targets." << std::endl;
-					// 	break;
-					// }
 
 					vel_msg_turtle.linear.x = control_inputs[0][0];
 					vel_msg_turtle.angular.z = control_inputs[0][1];
@@ -479,6 +481,18 @@ class scotsActionServer
 				};
 				scots::runge_kutta_fixed4(rhs, x, u, state_dim, tau, 10);
 			};
+
+			// auto  vehicle_post = [](state_type &x, const input_type &u) {
+			//   /* the ode describing the vehicle */
+			//   auto rhs =[](state_type& xx,  const state_type &x, const input_type &u) {
+			//     double alpha=std::atan(std::tan(u[1]) / 2.0);
+			//     xx[0] = u[0] * std::cos(alpha + x[2]) / std::cos(alpha);
+			//     xx[1] = u[0] * std::sin(alpha + x[2]) / std::cos(alpha);
+			//     xx[2] = u[0] * std::tan(u[1]);
+			//   };
+			//   /* simulate (use 10 intermediate steps in the ode solver) */
+			//   scots::runge_kutta_fixed4(rhs, x, u, state_dim, tau, 10);
+			// };
 
 			// defining target set
 			auto target = [&tr](const state_type& x) {
@@ -585,6 +599,27 @@ class scotsActionServer
 				scots::runge_kutta_fixed4(rhs, x, u, state_dim, tau, 10);
 			};
 
+			/* we integrate the vehicle ode by tau sec (the result is stored in x)  */
+			// auto  vehicle_post = [](state_type &x, const input_type &u) {
+			//   /* the ode describing the vehicle */
+			//   auto rhs =[](state_type& xx,  const state_type &x, const input_type &u) {
+			// 	double alpha=std::atan(std::tan(u[1]) / 2.0);
+			// 	xx[0] = u[0] * std::cos(alpha + x[2]) / std::cos(alpha);
+			// 	xx[1] = u[0] * std::sin(alpha + x[2]) / std::cos(alpha);
+			// 	xx[2] = u[0] * std::tan(u[1]);
+			//   };
+			//   /* simulate (use 10 intermediate steps in the ode solver) */
+			//   scots::runge_kutta_fixed4(rhs, x, u, state_dim, tau, 10);
+			// };
+
+			// /* we integrate the growth bound by 0.3 sec (the result is stored in r)  */
+			// auto radius_post = [](state_type &r, const state_type &, const input_type &u) {
+			// 	const state_type w = {{0.01, 0.01}};
+			//   	double c = std::abs(u[0]) * std::sqrt(std::tan(u[1]) * std::tan(u[1]) / 4.0+1);
+			//   	r[0] = r[0] + c * r[2] * tau + w[0];
+			//   	r[1] = r[1] + c * r[2] * tau + w[1];
+			// };
+
 			auto radius_post = [](state_type &r, const state_type &, const input_type &u) {
 				const state_type w = {{0.01, 0.01}};
 				r[0] = r[0] + r[2] * std::abs(u[0]) * tau + w[0];
@@ -603,7 +638,7 @@ class scotsActionServer
 			ss.print_info();
 			
 			input_type i_lb={{-0.22, -0.11}};
-			input_type i_ub={{ 0.22, 0.11}};
+			input_type i_ub={{ 0.22,  0.11}};
 			input_type i_eta={{.02, .01}};
 			  
 			scots::UniformGrid is(input_dim, i_lb, i_ub, i_eta);
@@ -639,7 +674,7 @@ class scotsActionServer
 					for(int j = -1; j < grid_ratio[0] + 1; j++) {
 						if(cord[1] + i >= 0 && cord[1] + i< height && cord[0] + j >= 0 && cord[0] + j < width) {
 							if(maps[cord[1] + i][cord[0] + j] != 0){
-					 			return true;
+								return true;
 							}
 						}
 					}
@@ -723,7 +758,7 @@ int main(int argc, char** argv) {
 	ros::init(argc, argv, "scotsActionServer");
 
 	ros::AsyncSpinner spinner(0);
-    spinner.start();
+	spinner.start();
 
 	// Create an action server object and spin ROS
 	scotsActionServer scotsAS("/scots");

@@ -342,10 +342,10 @@ if __name__ == '__main__':
 	action_client = scotsActionClient()
 	mapdata = mapData(action_client)
 
-	clearance = 0.1                   # clearance / grid size must be lower than frontier_clearance
-	frontier_clearance = 4
-	target_window = 8
-	safety_net = 2                    # The distance to be taken from the inflated frontier edge, this too must be even
+	clearance = 0.2                   # clearance / grid size must be lower than frontier_clearance
+	frontier_clearance = 6
+	target_window = 10
+	safety_net = 4                    # The distance to be taken from the inflated frontier edge, this too must be even
 
 	_w, _h, resolution = mapdata.get_map_dimensions()
 	
@@ -392,8 +392,8 @@ if __name__ == '__main__':
 					mapdata.send_new_goal(targets)
 					
 					# resetting the parameters
-					clearance = 0.1
-					frontier_clearance = 4
+					clearance = 0.2
+					frontier_clearance = 6
 					action_client._ac.wait_for_result()
 			else:
 				print("No targets.. reducing clearance, frontier_clearance and safety net.")
