@@ -5,8 +5,8 @@
  *      author: rungger
  */
 
-#ifndef TICTOC_HH_
-#define TICTOC_HH_
+#ifndef TICTOC_HPP_
+#define TICTOC_HPP_
 
 #include <iostream>
 #include <chrono>
@@ -43,4 +43,4 @@ public:
   }
 };
 
-#endif /* TICTOC_HH_ */
+#endif /* TICTOC_HPP_ */

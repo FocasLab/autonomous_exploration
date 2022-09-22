@@ -6,6 +6,7 @@
  */
 
 /** @file **/
+#pragma once
 
 #ifndef SCOTS_HPP_
 #define SCOTS_HPP_

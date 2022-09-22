@@ -6,8 +6,8 @@
  */
 
 /** @file **/
-#ifndef RUNGEKUTTA4_HH_
-#define RUNGEKUTTA4_HH_
+#ifndef RUNGEKUTTA4_HPP_
+#define RUNGEKUTTA4_HPP_
 
 /** @namespace scots **/ 
 namespace scots {
@@ -55,4 +55,4 @@ void runge_kutta_fixed4(RHS rhs, state_type &x, input_type &u, const int dim, co
 
 } /* close namespace */
 
-#endif /* RUNGEKUTTA4_HH_ */
+#endif /* RUNGEKUTTA4_HPP_ */

@@ -144,20 +144,6 @@ class scotsActionServer
 		{
 		}
 
-		// void robotPoseCallback_1(const phasespace_msgs::Markers &msg) {
-		// 	phasespace_msgs::Marker marker_dyn = msg.markers[0];
-		// 	phasespace_msgs::Marker marker_ori = msg.markers[1];
-
-		// 	curr_pose.x = marker_dyn.x;
-		// 	curr_pose.y = marker_dyn.y;
-
-		// 	double dy = marker_dyn.y - marker_ori.y;
-		// 	double dx = marker_dyn.x - marker_ori.x;
-
-		// 	double angle = std::atan2(dy, dx);
-		// 	curr_pose.theta = angle;
-		// }
-
 		void robotPoseCallback_2(const geometry_msgs::Pose2D &msg) {
 			curr_pose.x = msg.x;
 			curr_pose.y = msg.y;
@@ -666,8 +652,6 @@ class scotsActionServer
 				// coordinates to search in map matrix
 				// 0.2 is added for floating point numbers.
 				std::vector<int> cord{int((x[0] / resolution) + 0.2), int((x[1] / resolution) + 0.2)};
-
-				geometry_msgs::Point pt;
 
 				for(int i = -1; i < grid_ratio[1] + 1; i++) {
 					for(int j = -1; j < grid_ratio[0] + 1; j++) {
