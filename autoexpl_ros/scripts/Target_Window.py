@@ -32,7 +32,7 @@ class FrontierExploration():
         self.minVal, self.maxVal = 195, 210
 
         #Frontier Target Window Size
-        self.size_frontier_target_window = 7
+        self.size_frontier_target_window = 11
         self.floor_half_size_frontier_target_window = self.size_frontier_target_window//2
 
         #Gaussian Kernel used for Theta Function
@@ -45,10 +45,14 @@ class FrontierExploration():
         self.check_0=np.zeros((self.size_frontier_target_window, self.size_frontier_target_window))
         self.check_207=np.ones((self.size_frontier_target_window, self.size_frontier_target_window))*207
 
+        # Limit on max explore
+        self.max_explore_from_point=100
+
         while not rospy.is_shutdown():
             # Initiated with sleep so it can subscribed to map in the mean time.
             self.rate.sleep()
 
+            self.points_before_shifting=[]
             #Initiated an empty list for shifted frontier target points
             self.shifted_frontier_target_points = []
             
@@ -62,9 +66,12 @@ class FrontierExploration():
 
             # Publishing Marker on Target Point
             if(len(self.shifted_frontier_target_points)>0):
+                print("Base Point: ", self.points_before_shifting[0])
                 self.FinalFrontierSelector(point=self.shifted_frontier_target_points[0])
             else:
                 print("No Point Found")
+
+            print("\n")
 
     def start_marker(self):
         self.marker=Marker()
@@ -193,11 +200,13 @@ class FrontierExploration():
     def Explore_From_Ranked_Points(self):
         self.visited_points = []
         for point in self.ranked_points:
+            self.point=point
             target_window, map_window, target_theta = self.Window_Features_at_Point(point)
 
             print("Point: ", point)
             self.visited_points.append(point)
 
+            self.current_explore_count=0
             self.PointShifter(point=point, target_theta=target_theta, map_window=map_window)
 
     def Window_Features_at_Point(self, point, explore_points=None):
@@ -213,8 +222,9 @@ class FrontierExploration():
         theta, gradient = self.Matrix_Gradient__Theta(target_window)
         target_theta, target_gradient = self.FrontierInterpolation(theta, gradient)
 
-        if(explore_points == True and (self.size_frontier_target_window <= point[0] <= self.map_smooth.shape[1]-self.size_frontier_target_window and self.size_frontier_target_window <= point[1] <= self.map_smooth.shape[0]-self.size_frontier_target_window)):
+        if(explore_points == True and self.current_explore_count<self.max_explore_from_point and (self.size_frontier_target_window <= point[0] <= self.map_smooth.shape[1]-self.size_frontier_target_window and self.size_frontier_target_window <= point[1] <= self.map_smooth.shape[0]-self.size_frontier_target_window)):
             #Explore on new point by shifting and above we check for boundry condition too
+            self.current_explore_count+=1
             print("Explore Point: ", point)
             self.PointShifter(point, target_theta=target_theta, map_window=map_window)
 
@@ -337,11 +347,12 @@ class FrontierExploration():
         #if it doesnt contain any 0 and 207 then it is the frontier point and append it in shifted frontier list
         elif(condition_check_0==False and condition_check_207==False):
             print("FRONTIER Point: ", point)
+            self.points_before_shifting.append(self.point)
             self.shifted_frontier_target_points.append(point)
 
     def FinalFrontierSelector(self, point):
         self.Final_Frontier_Point = point
-        print("Final Frontier Point: ", self.Final_Frontier_Point, "\n")
+        print("Final Frontier Point: ", self.Final_Frontier_Point)
         self.start_marker()
         
 
