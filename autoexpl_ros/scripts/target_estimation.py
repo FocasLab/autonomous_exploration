@@ -366,9 +366,11 @@ if __name__ == '__main__':
 				break
 
 			targets = []
+			start = rospy.Time.now()
 			safe_targets = get_safe_targets(target_finder, clearance, frontier_clearance, safety_net, maps, width, height)
+			end = rospy.Time.now()
 
-			# print("Safe targets, %r" % safe_targets)
+			print("Total Time. {}".format(end - start))
 
 			if(len(safe_targets) > 0):
 				for i in range(len(safe_targets)):

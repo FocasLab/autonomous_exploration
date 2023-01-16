@@ -5,11 +5,11 @@
   <arg name="model" default="$(env TURTLEBOT3_MODEL)" doc="model type [burger, waffle, waffle_pi]"/>
   <!-- House1 -1 1 0, -6.5 -3.0 0, 5 1 0 -->
   <!-- House2 0 0 0,-4 -1 0,4 1 0, 1 4 0, -4 2 0 -->
-  <arg name="x_pos" default="5.0"/>
-  <arg name="y_pos" default="1.0"/>
-  <arg name="z_pos" default="0.0"/>
+  <arg name="x_pos" default="3"/>
+  <arg name="y_pos" default="-4.5"/>
+  <arg name="z_pos" default="0.1"/>
 
-  <arg name="world" default="scots"/>
+  <arg name="world" default="scots2"/>
 
   <include file="$(find gazebo_ros)/launch/empty_world.launch">
     <arg name="world_name" value="$(find autoexpl_simulations)/worlds/$(arg world).world"/>

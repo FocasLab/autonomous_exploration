@@ -112,7 +112,7 @@ class scotsActionServer
 	public:
 		scotsActionServer(std::string name) : 
 		// Bind the callback to the action server. False is for thread spinning
-		as_(nh_, name, boost::bind(&scotsActionServer::processGoal, this, _1), false),
+		as_(nh_, name, boost::bind(&scotsActionServer::processGoal_1, this, _1), false),
 		action_name_(name) {
 			// subscribers
 			robot_pose = nh_.subscribe(pose_topic_name_, 10, &scotsActionServer::robotPoseCallback_2, this);
@@ -538,30 +538,43 @@ class scotsActionServer
 		}
 
 		void processGoal_1(const autoexpl_msgs::AutoExplGoalConstPtr &goal) {
-			bool success = false;
+			bool success = true;
+
+			double lb = width * resolution;
+			double ub = height * resolution;
+			
+			state_type s_lb={{0, 0, -3.5}};
+			state_type s_ub={{std::ceil(lb * 100.0) / 100.0, std::ceil(ub * 100.0) / 100.0, 3.5}};
+			state_type s_eta={{.1, .1, .2}};
+
+			scots::UniformGrid ss(state_dim, s_lb, s_ub, s_eta);
+			std::cout << std::endl;
+			ss.print_info();
+			
+			input_type i_lb={{-0.22, -0.11}};
+			input_type i_ub={{ 0.22,  0.11}};
+			input_type i_eta={{.02, .01}};
+			  
+			scots::UniformGrid is(input_dim, i_lb, i_ub, i_eta);
+			std::cout << std::endl;	
+			is.print_info();
+
+			bool origin_update_success = origin_update_client.call(req, resp);
+
 			// Parsing targets
 			int num_targets = goal->targets.size();
-			// std::vector<scots::StaticController> controllers;
+			
+			std::vector<std::vector<int>> maps = getMapMatrix(map_vector, width, height);
 
-			// for(int i = 0; i < num_targets; i++) {
-			// 	controllers.push_back(getDomain(ss, s_eta, goal->targets[i]));
-			// }
-
-			// scots::StaticController controller = getDomain(ss, is, tf, s_eta, goal->targets[1]);
-			scots::StaticController controller; 
-			if(!read_from_file(controller, "AutoExpl")) {
-				std::cout << "Could not able read for file." << std::endl;
-				success = false;
-			}
-
-			std::cout << "\n\nTarget Locked, starting to proceed." << std::endl;
-			success = simulatePath(controller, goal->targets[0]);
-			success = reachTarget(controller, goal->targets[0]);
+			visualizeObstacles(ss, maps);
+			visualizeTargets(goal->targets[0]);
 
 			if(success) {
 				result_.target_id = 0;
 				result_.synthesis_time = 0.0;
 				result_.completion_time = 0.0;
+
+				bool send_new_goal_success = send_new_goal_client.call(req, resp);
 
 				std::cout << "Succeeded for: " << action_name_.c_str() << std::endl;
 				// set the action state to succeeded
