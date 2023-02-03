@@ -24,4 +24,6 @@
   <depend>actionlib</depend>
   <depend>tf2</depend>
   <depend>tf2_ros</depend>
+  <depend>pcl_ros</depend>
+  <depend>pcl_msgs</depend>
 </package>

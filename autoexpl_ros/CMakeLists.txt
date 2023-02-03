@@ -15,6 +15,8 @@ find_package(catkin REQUIRED COMPONENTS
   actionlib
   tf2_ros
   tf2
+  pcl_ros
+  pcl_msgs
 )
 
 ## System dependencies are found with CMake's conventions
@@ -49,6 +51,8 @@ catkin_package(
   actionlib
   tf2_ros
   tf2
+  pcl_ros
+  pcl_msgs
 #  DEPENDS system_lib
 )
 
@@ -69,6 +73,7 @@ add_executable(scots_action_server src/scotsActionServer.cpp)
 add_executable(scots_action_client src/scotsActionClient.cpp)
 add_executable(origin_pose_publisher src/origin_pose_publisher.cpp)
 add_executable(robot_pose_publisher src/robot_pose_publisher.cpp)
+add_executable(get_dynamic_location src/get_dynamic_location.cpp)
 
 target_link_libraries(
   scots_action_server
@@ -87,6 +92,11 @@ target_link_libraries(
 
 target_link_libraries(
   robot_pose_publisher
+  ${catkin_LIBRARIES}
+)
+
+target_link_libraries(
+  get_dynamic_location
   ${catkin_LIBRARIES}
 )
 # add_dependencies(
