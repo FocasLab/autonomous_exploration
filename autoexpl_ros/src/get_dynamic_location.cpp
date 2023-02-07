@@ -4,7 +4,7 @@
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 
-void cloud_callback (const sensor_msgs::PointCloud2ConstPtr& input)
+void cloud_callback(const sensor_msgs::PointCloud2ConstPtr& input)
 {
   // Convert the sensor_msgs/PointCloud2 data to pcl/PointCloud
   pcl::PointCloud<pcl::PointXYZ> cloud;
