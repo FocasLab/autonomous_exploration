@@ -17,6 +17,7 @@ find_package(catkin REQUIRED COMPONENTS
   tf2
   pcl_ros
   pcl_msgs
+  sensor_msgs
 )
 
 ## System dependencies are found with CMake's conventions
@@ -53,6 +54,7 @@ catkin_package(
   tf2
   pcl_ros
   pcl_msgs
+  sensor_msgs
 #  DEPENDS system_lib
 )
 
