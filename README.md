@@ -13,8 +13,9 @@ Autonomous_Exploration is framework for exploration planning and mapping. It is 
 # Video
 For a short overview of the system check out our video on youtube.
 
-[![AutoExpl Demo]()](
+[![AutoExpl Demo](https://user-images.githubusercontent.com/56308805/222194781-07fbe5c3-a2ff-4e5d-a48b-aa81f4b6a83b.jpg)](
 https://www.youtube.com/watch?v=DTSIa1ccz6o)
+
 # Installation
 Installation instructions for Linux.
 
