@@ -75,7 +75,7 @@ add_executable(scots_action_server src/scotsActionServer.cpp)
 add_executable(scots_action_client src/scotsActionClient.cpp)
 add_executable(origin_pose_publisher src/origin_pose_publisher.cpp)
 add_executable(robot_pose_publisher src/robot_pose_publisher.cpp)
-add_executable(get_dynamic_location src/get_dynamic_location.cpp)
+#add_executable(get_dynamic_location src/get_dynamic_location.cpp)
 
 target_link_libraries(
   scots_action_server
